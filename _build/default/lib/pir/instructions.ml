@@ -149,8 +149,10 @@ let result_type_of_instr = function
   | Cast (Fptosi (_, ty)) -> Some ty          (* Target type *)
   | Cast (Uitofp (_, ty)) -> Some ty          (* Target type *)
   | Cast (Sitofp (_, ty)) -> Some ty          (* Target type *)
-  | Vector (Splat (_, _)) -> 
-    None (* Would need scalar type to determine vector type *)
+  | Vector (Splat (scalar, count)) -> 
+    (match get_type scalar with
+     | Scalar s -> Some (Vector (count, s))
+     | _ -> None)
   | Vector (Shuffle (v1, _, _)) -> Some (get_type v1) (* Same type as first vector *)
   | Vector (ExtractLane (v, _)) -> 
     (match get_type v with

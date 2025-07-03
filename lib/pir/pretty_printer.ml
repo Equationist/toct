@@ -3,6 +3,7 @@
 open Types
 open Values
 open Instructions
+open Module_ir
 
 (* Color codes for terminal output *)
 type color = 
@@ -80,38 +81,32 @@ let attr_color ctx s =
 let rec pp_type ctx = function
   | Scalar s -> type_color ctx (string_of_scalar s)
   | Vector (n, s) -> 
-    Printf.sprintf "%s<%d x %s>" 
-      (type_color ctx "vec") n (string_of_scalar s)
+    type_color ctx (Printf.sprintf "v%dx%s" n (string_of_scalar s))
   | Ptr -> type_color ctx "ptr"
   | Struct fields ->
     let field_strs = List.map (pp_type ctx) fields in
-    Printf.sprintf "%s {%s}" 
+    Printf.sprintf "%s<<%s>>" 
       (type_color ctx "struct") (String.concat ", " field_strs)
   | Array (n, ty) ->
-    Printf.sprintf "[%d x %s]" n (pp_type ctx ty)
+    Printf.sprintf "%s[%d]%s" 
+      (type_color ctx "array") n (pp_type ctx ty)
   | PackedStruct fields ->
     let field_strs = List.map (pp_type ctx) fields in
-    Printf.sprintf "%s {%s}" 
+    Printf.sprintf "%s<<%s>>" 
       (type_color ctx "packed_struct") (String.concat ", " field_strs)
 
 (* Value pretty printing *)
 let pp_value ctx v =
-  let name = value_color ctx (string_of_value v) in
-  if ctx.config.show_types then
-    Printf.sprintf "%s:%s" name (pp_type ctx (get_type v))
-  else
-    name
+  value_color ctx (string_of_value v)
 
 (* Constant value pretty printing *)
 let pp_const_value ctx = function
-  | ConstInt (i, ty) -> 
-    Printf.sprintf "%s %s" (pp_type ctx (Scalar ty)) (value_color ctx (Int64.to_string i))
-  | ConstFloat (f, ty) ->
-    Printf.sprintf "%s %s" (pp_type ctx (Scalar ty)) (value_color ctx (string_of_float f))
+  | ConstInt (i, _ty) -> value_color ctx (Int64.to_string i)
+  | ConstFloat (f, _ty) -> value_color ctx (string_of_float f)
   | ConstBool b -> value_color ctx (if b then "true" else "false")
   | ConstNull -> value_color ctx "null"
-  | ConstUndef ty -> Printf.sprintf "%s %s" (pp_type ctx ty) (value_color ctx "undef")
-  | ConstZero ty -> Printf.sprintf "%s %s" (pp_type ctx ty) (value_color ctx "zeroinitializer")
+  | ConstUndef _ty -> value_color ctx "undef"
+  | ConstZero _ty -> value_color ctx "0"
   | ConstArray _ -> value_color ctx "[...]"
   | ConstStruct _ -> value_color ctx "{...}"
 
@@ -144,23 +139,32 @@ let pp_flag = function
 
 let pp_instr ctx = function
   | Binop (op, flag, v1, v2) ->
-    Printf.sprintf "%s%s %s, %s"
+    let ty = get_type v1 in
+    let no_color_ctx = { ctx with config = { ctx.config with use_colors = false } } in
+    Printf.sprintf "%s%s.%s %s, %s"
       (keyword ctx (pp_binop_name op))
       (pp_flag flag)
+      (pp_type no_color_ctx ty)
       (pp_value ctx v1)
       (pp_value ctx v2)
   
   | Icmp (pred, v1, v2) ->
-    Printf.sprintf "%s %s %s, %s"
+    let ty = get_type v1 in
+    let no_color_ctx = { ctx with config = { ctx.config with use_colors = false } } in
+    Printf.sprintf "%s.%s.%s %s, %s"
       (keyword ctx "icmp")
       (pp_icmp_pred pred)
+      (pp_type no_color_ctx ty)
       (pp_value ctx v1)
       (pp_value ctx v2)
   
   | Fcmp (pred, v1, v2) ->
-    Printf.sprintf "%s %s %s, %s"
+    let ty = get_type v1 in
+    let no_color_ctx = { ctx with config = { ctx.config with use_colors = false } } in
+    Printf.sprintf "%s.%s.%s %s, %s"
       (keyword ctx "fcmp")
       (pp_fcmp_pred pred)
+      (pp_type no_color_ctx ty)
       (pp_value ctx v1)
       (pp_value ctx v2)
   
@@ -172,18 +176,22 @@ let pp_instr ctx = function
       (pp_value ctx v_false)
   
   | Memory (Load ty) ->
-    Printf.sprintf "%s.%s"
+    let no_color_ctx = { ctx with config = { ctx.config with use_colors = false } } in
+    Printf.sprintf "%s.%s [...]"
       (keyword ctx "load")
-      (pp_type ctx ty)
+      (pp_type no_color_ctx ty)
   
   | Memory (Store (val_, ptr)) ->
-    Printf.sprintf "%s %s, %s"
+    let ty = get_type val_ in
+    let no_color_ctx = { ctx with config = { ctx.config with use_colors = false } } in
+    Printf.sprintf "%s.%s %s, [%s]"
       (keyword ctx "store")
+      (pp_type no_color_ctx ty)
       (pp_value ctx val_)
       (pp_value ctx ptr)
   
   | Memory (Alloca (size, align)) ->
-    Printf.sprintf "%s %s, %d"
+    Printf.sprintf "%s %s align %d"
       (keyword ctx "alloca")
       (pp_value ctx size)
       align
@@ -244,11 +252,13 @@ let pp_instr ctx = function
   
   | Call (Call (callee, args)) ->
     let args_str = String.concat ", " (List.map (pp_value ctx) args) in
-    Printf.sprintf "%s %s(%s)" (keyword ctx "call") (pp_value ctx callee) args_str
+    (* TODO: Proper return type handling *)
+    Printf.sprintf "%s.void %s, %s" (keyword ctx "call") (pp_value ctx callee) args_str
   
   | Call (TailCall (callee, args)) ->
     let args_str = String.concat ", " (List.map (pp_value ctx) args) in
-    Printf.sprintf "%s %s(%s)" (keyword ctx "tailcall") (pp_value ctx callee) args_str
+    (* TODO: Proper return type handling *)
+    Printf.sprintf "%s.void %s, %s" (keyword ctx "tailcall") (pp_value ctx callee) args_str
   
   | Phi phi_list ->
     let phi_entries = List.map (fun (v, label) ->
@@ -346,11 +356,56 @@ let pp_function ctx (func : Instructions.func) =
     return_str
     attrs_str in
   
-  let ctx' = indent ctx in
-  let block_strs = List.map (pp_basic_block ctx') func.blocks in
-  let body = String.concat "\n\n" block_strs in
+  let block_strs = List.map (pp_basic_block ctx) func.blocks in
+  let body = String.concat "\n" block_strs in
   
-  Printf.sprintf "%s {\n%s\n}" header body
+  Printf.sprintf "%s\n%s\n%s" header body (keyword ctx "endfunc")
+
+(* Constant expression pretty printing *)
+let rec pp_const_expr ctx = function
+  | ConstZero -> value_color ctx "0"
+  | ConstValue cv -> pp_const_value ctx cv
+  | ConstAggregate exprs ->
+    let expr_strs = List.map (pp_const_expr ctx) exprs in
+    Printf.sprintf "<<%s>>" (String.concat ", " expr_strs)
+
+(* Type declaration pretty printing *)
+let pp_type_decl ctx (decl : type_decl) =
+  Printf.sprintf "%s %s = %s"
+    (keyword ctx "type")
+    (value_color ctx decl.type_name)
+    (pp_type ctx decl.type_def)
+
+(* Object declaration pretty printing *)
+let pp_object_decl ctx (obj : object_decl) =
+  let kind = if obj.obj_is_const then keyword ctx "const" else keyword ctx "global" in
+  let align_str = match obj.obj_align with
+    | Some a -> Printf.sprintf " align %d" a
+    | None -> "" in
+  let attrs_str =
+    if ctx.config.show_attributes && not (Attributes.is_empty obj.obj_attrs) then
+      " " ^ attr_color ctx (Attributes.string_of_attrs obj.obj_attrs)
+    else "" in
+  Printf.sprintf "%s %s:%s%s init %s%s"
+    kind
+    (value_color ctx obj.obj_name)
+    (pp_type ctx obj.obj_ty)
+    align_str
+    (pp_const_expr ctx obj.obj_init)
+    attrs_str
+
+(* Top-level item pretty printing *)
+let pp_top_item ctx = function
+  | TypeDecl td -> pp_type_decl ctx td
+  | ObjectDecl od -> pp_object_decl ctx od
+  | FuncDecl f -> pp_function ctx f
+
+(* Module pretty printing *)
+let pp_module ?(config=default_config) (m : pir_module) =
+  let ctx = make_context ~config () in
+  let header = comment_color ctx "; PIR v0.9" in
+  let item_strs = List.map (pp_top_item ctx) m.items in
+  String.concat "\n\n" (header :: item_strs)
 
 (* Module/program pretty printing *)
 let pp_program ?(config=default_config) funcs =
@@ -385,3 +440,21 @@ let block_to_string ?(config=default_config) block =
 let instruction_to_string ?(config=default_config) instr =
   let ctx = make_context ~config () in
   pp_instruction ctx instr
+
+(* Module pretty printing *)
+let module_to_string ?(config=default_config) m =
+  pp_module ~config m
+
+let print_module_to_channel ?(config=default_config) channel m =
+  output_string channel (pp_module ~config m);
+  output_char channel '\n';
+  flush channel
+
+let print_module_to_file ?(config=default_config) filename m =
+  let channel = open_out filename in
+  try
+    print_module_to_channel ~config channel m;
+    close_out channel
+  with e ->
+    close_out channel;
+    raise e

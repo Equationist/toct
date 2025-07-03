@@ -89,10 +89,8 @@ let rec string_of_const_value = function
     Printf.sprintf "{%s}" (String.concat ", " value_strs)
 
 let string_of_value value =
-  let attrs_str = Attributes.string_of_attrs value.attrs in
-  let type_str = Types.string_of_ty value.ty in
-  Printf.sprintf "%%%d:%s%s" value.id type_str 
-    (if attrs_str = "" then "" else " " ^ attrs_str)
+  (* For spec compliance, just use the numeric id without % or type *)
+  Printf.sprintf "v%d" value.id
 
 (* Validation *)
 let validate_const_value const_val expected_ty =

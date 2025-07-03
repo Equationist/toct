@@ -36,8 +36,14 @@
    pir/compilerkit_pir__Builder.cmt
    pir/compilerkit_pir__Instructions.cmi
    pir/compilerkit_pir__Instructions.cmt
+   pir/compilerkit_pir__Lexer.cmi
+   pir/compilerkit_pir__Lexer.cmt
    pir/compilerkit_pir__Linter.cmi
    pir/compilerkit_pir__Linter.cmt
+   pir/compilerkit_pir__Module_ir.cmi
+   pir/compilerkit_pir__Module_ir.cmt
+   pir/compilerkit_pir__Parser.cmi
+   pir/compilerkit_pir__Parser.cmt
    pir/compilerkit_pir__Pretty_printer.cmi
    pir/compilerkit_pir__Pretty_printer.cmt
    pir/compilerkit_pir__Types.cmi
@@ -45,7 +51,10 @@
    pir/compilerkit_pir__Values.cmi
    pir/compilerkit_pir__Values.cmt
    pir/instructions.ml
+   pir/lexer.ml
    pir/linter.ml
+   pir/module_ir.ml
+   pir/parser.ml
    pir/pretty_printer.ml
    pir/types.ml
    pir/values.ml
@@ -53,7 +62,7 @@
    target/compilerkit_target.cmi
    target/compilerkit_target.cmt
    target/compilerkit_target.ml))
- (bin (pir-objdump pirc))
+ (bin (fibonacci memory_ops pir-objdump pirc vector_ops))
  (doc (README.md)))
 (library
  (name compilerkit)
@@ -153,9 +162,21 @@
       (visibility public)
       (source (path Instructions) (impl (path pir/instructions.ml))))
      (module
+      (obj_name compilerkit_pir__Lexer)
+      (visibility public)
+      (source (path Lexer) (impl (path pir/lexer.ml))))
+     (module
       (obj_name compilerkit_pir__Linter)
       (visibility public)
       (source (path Linter) (impl (path pir/linter.ml))))
+     (module
+      (obj_name compilerkit_pir__Module_ir)
+      (visibility public)
+      (source (path Module_ir) (impl (path pir/module_ir.ml))))
+     (module
+      (obj_name compilerkit_pir__Parser)
+      (visibility public)
+      (source (path Parser) (impl (path pir/parser.ml))))
      (module
       (obj_name compilerkit_pir__Pretty_printer)
       (visibility public)

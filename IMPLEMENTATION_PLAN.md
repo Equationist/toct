@@ -38,29 +38,36 @@ The **Tiny OCaml Compiler Toolkit (TOCT)** is a modular compiler infrastructure 
   - [x] **Tests**: Builder API, pretty-print roundtrip, linter validation
 
 - [x] **4. PIR Text Parser**
-  - [x] Lexer for PIR text format
-  - [x] Parser for functions, blocks, and instructions
-  - [x] Support for all instruction types and attributes
+  - [x] Lexer for PIR text format per specification
+  - [x] Parser for module structure (types, globals, constants, functions)
+  - [x] Support for all instruction types with spec syntax (opcode.flag.type)
   - [x] Error recovery and reporting
-  - [x] **Tests**: Parse/pretty-print roundtrip, error cases
+  - [x] **Tests**: Parse all PIR constructs, spec compliance tests
+  
+- [x] **5. PIR Spec Compliance Update**
+  - [x] Updated AST types to match portable_ir_spec.md
+  - [x] Updated lexer to recognize spec tokens (TYPE, GLOBAL, CONST, etc.)
+  - [x] Updated parser to handle spec instruction syntax
+  - [x] Updated pretty printer to output spec-compliant PIR
+  - [x] **Tests**: All examples parse correctly, pretty printer outputs valid PIR
 
 ### Phase 2: Frontend Helpers (Medium Priority)
 
-- [ ] **5. Lexer/Parser Infrastructure**
+- [ ] **6. Lexer/Parser Infrastructure**
   - [ ] Pratt parser combinator DSL
   - [ ] Menhir integration helpers
   - [ ] Position tracking and error reporting
   - [ ] Common lexer utilities
   - [ ] **Tests**: Lexer token recognition, parser combinators, error recovery
 
-- [ ] **6. Symbol Table & Type System**
+- [ ] **7. Symbol Table & Type System**
   - [ ] Scoped symbol management
   - [ ] Hindley-Milner type inference with row polymorphism
   - [ ] Kind system for higher-order types
   - [ ] Type constraint solving
   - [ ] **Tests**: Symbol scoping, type inference, constraint solving
 
-- [ ] **7. Analysis Framework**
+- [ ] **8. Analysis Framework**
   - [ ] Range analysis (interval domain)
   - [ ] Null/definiteness analysis
   - [ ] Optional: Octagon relational analysis
@@ -69,14 +76,14 @@ The **Tiny OCaml Compiler Toolkit (TOCT)** is a modular compiler infrastructure 
 
 ### Phase 3: Backend Pipeline (Medium Priority)
 
-- [ ] **7. SSA Transformation (Pass #0)**
+- [ ] **9. SSA Transformation (Pass #0)**
   - [ ] Braun-Buchwald pruned SSA construction
   - [ ] Dominance frontier computation
   - [ ] Block parameter insertion
   - [ ] SSA verification
   - [ ] **Tests**: SSA construction on simple CFGs, dominance correctness
 
-- [ ] **8. Optimization Passes (#1-#11)**
+- [ ] **10. Optimization Passes (#1-#11)**
   - [ ] Pass #1: Sparse Conditional Constant Propagation
     - [ ] **Tests**: Constant folding, unreachable code detection
   - [ ] Pass #2: Hash-based Global Value Numbering + PRE

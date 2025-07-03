@@ -1,4 +1,5 @@
 compilerkit_pir__Attributes
 compilerkit_pir__Instructions
+compilerkit_pir__Module_ir
 compilerkit_pir__Types
 compilerkit_pir__Values

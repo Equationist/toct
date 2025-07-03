@@ -5,9 +5,12 @@ module Types = Types
 module Attributes = Attributes  
 module Values = Values
 module Instructions = Instructions
+module Module_ir = Module_ir
 module Builder = Builder
 module Pretty_printer = Pretty_printer
 module Linter = Linter
+module Lexer = Lexer
+module Parser = Parser
 
 (* Re-export commonly used types *)
 type ty = Types.ty
