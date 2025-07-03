@@ -8,6 +8,8 @@ module Instructions = Instructions
 module Builder = Builder
 module Pretty_printer = Pretty_printer
 module Linter = Linter
+module Lexer = Lexer
+module Parser = Parser
 
 (* Re-export commonly used types *)
 type ty = Types.ty

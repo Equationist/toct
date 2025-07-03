@@ -37,23 +37,30 @@ The **Tiny OCaml Compiler Toolkit (TOCT)** is a modular compiler infrastructure 
   - [x] Attribute attachment system (JSON-based)
   - [x] **Tests**: Builder API, pretty-print roundtrip, linter validation
 
+- [x] **4. PIR Text Parser**
+  - [x] Lexer for PIR text format
+  - [x] Parser for functions, blocks, and instructions
+  - [x] Support for all instruction types and attributes
+  - [x] Error recovery and reporting
+  - [x] **Tests**: Parse/pretty-print roundtrip, error cases
+
 ### Phase 2: Frontend Helpers (Medium Priority)
 
-- [ ] **4. Lexer/Parser Infrastructure**
+- [ ] **5. Lexer/Parser Infrastructure**
   - [ ] Pratt parser combinator DSL
   - [ ] Menhir integration helpers
   - [ ] Position tracking and error reporting
   - [ ] Common lexer utilities
   - [ ] **Tests**: Lexer token recognition, parser combinators, error recovery
 
-- [ ] **5. Symbol Table & Type System**
+- [ ] **6. Symbol Table & Type System**
   - [ ] Scoped symbol management
   - [ ] Hindley-Milner type inference with row polymorphism
   - [ ] Kind system for higher-order types
   - [ ] Type constraint solving
   - [ ] **Tests**: Symbol scoping, type inference, constraint solving
 
-- [ ] **6. Analysis Framework**
+- [ ] **7. Analysis Framework**
   - [ ] Range analysis (interval domain)
   - [ ] Null/definiteness analysis
   - [ ] Optional: Octagon relational analysis
@@ -212,6 +219,14 @@ compilerkit/
   - Added comprehensive unit tests for all modules
   - Created integration tests for builder + pretty printer roundtrip
   - Added example programs demonstrating PIR usage
+- **2025-07-03**: Completed PIR Text Parser:
+  - Implemented lexer with full token support for PIR syntax
+  - Created recursive descent parser for functions, blocks, and instructions
+  - Added support for all PIR types including vectors, arrays, and structs
+  - Implemented error handling with detailed parse error messages
+  - Fixed lexer to properly distinguish between block labels and parameter types
+  - Created example PIR text files demonstrating various language features
+  - All parser tests passing successfully
 
 ## References
 
