@@ -1,7 +1,0 @@
-lib: [
-  "_build/install/default/lib/compilerkit-test/META"
-  "_build/install/default/lib/compilerkit-test/dune-package"
-]
-doc: [
-  "_build/install/default/doc/compilerkit-test/README"
-]

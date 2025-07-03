@@ -1,3 +1,4 @@
 (library
  (public_name compilerkit.common)
- (name compilerkit_common))
+ (name compilerkit_common)
+ (modes byte))

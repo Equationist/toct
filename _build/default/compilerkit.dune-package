@@ -33,6 +33,7 @@
    frontend/compilerkit_frontend.cmx
    frontend/compilerkit_frontend.cmxa
    frontend/compilerkit_frontend.ml
+   pir/attributes.ml
    pir/compilerkit_pir.a
    pir/compilerkit_pir.cma
    pir/compilerkit_pir.cmi
@@ -40,6 +41,25 @@
    pir/compilerkit_pir.cmx
    pir/compilerkit_pir.cmxa
    pir/compilerkit_pir.ml
+   pir/compilerkit_pir__.cmi
+   pir/compilerkit_pir__.cmt
+   pir/compilerkit_pir__.cmx
+   pir/compilerkit_pir__.ml
+   pir/compilerkit_pir__Attributes.cmi
+   pir/compilerkit_pir__Attributes.cmt
+   pir/compilerkit_pir__Attributes.cmx
+   pir/compilerkit_pir__Instructions.cmi
+   pir/compilerkit_pir__Instructions.cmt
+   pir/compilerkit_pir__Instructions.cmx
+   pir/compilerkit_pir__Types.cmi
+   pir/compilerkit_pir__Types.cmt
+   pir/compilerkit_pir__Types.cmx
+   pir/compilerkit_pir__Values.cmi
+   pir/compilerkit_pir__Values.cmt
+   pir/compilerkit_pir__Values.cmx
+   pir/instructions.ml
+   pir/types.ml
+   pir/values.ml
    target/compilerkit_target.a
    target/compilerkit_target.cma
    target/compilerkit_target.cmi
@@ -143,10 +163,38 @@
  (main_module_name Compilerkit_pir)
  (modes byte native)
  (modules
-  (singleton
-   (obj_name compilerkit_pir)
-   (visibility public)
-   (source (path Compilerkit_pir) (impl (path pir/compilerkit_pir.ml))))))
+  (wrapped
+   (group
+    (alias
+     (obj_name compilerkit_pir__)
+     (visibility public)
+     (kind alias)
+     (source
+      (path Compilerkit_pir__)
+      (impl (path pir/compilerkit_pir__.ml-gen))))
+    (name Compilerkit_pir)
+    (modules
+     (module
+      (obj_name compilerkit_pir__Attributes)
+      (visibility public)
+      (source (path Attributes) (impl (path pir/attributes.ml))))
+     (module
+      (obj_name compilerkit_pir)
+      (visibility public)
+      (source (path Compilerkit_pir) (impl (path pir/compilerkit_pir.ml))))
+     (module
+      (obj_name compilerkit_pir__Instructions)
+      (visibility public)
+      (source (path Instructions) (impl (path pir/instructions.ml))))
+     (module
+      (obj_name compilerkit_pir__Types)
+      (visibility public)
+      (source (path Types) (impl (path pir/types.ml))))
+     (module
+      (obj_name compilerkit_pir__Values)
+      (visibility public)
+      (source (path Values) (impl (path pir/values.ml))))))
+   (wrapped true))))
 (library
  (name compilerkit.target)
  (kind normal)
