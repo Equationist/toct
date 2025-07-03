@@ -2,4 +2,5 @@
  (public_name compilerkit.frontend)
  (name compilerkit_frontend)
  (modes byte)
+ (modules position pratt error_reporter lexer_utils compilerkit_frontend)
  (libraries compilerkit_common compilerkit_pir))

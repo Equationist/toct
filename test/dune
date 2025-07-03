@@ -15,3 +15,9 @@
  (package compilerkit-test)
  (modes byte)
  (libraries compilerkit_common compilerkit_pir))
+
+(test
+ (name test_parser_combinators)
+ (package compilerkit-test)
+ (modes byte)
+ (libraries compilerkit_common compilerkit_pir compilerkit_frontend))

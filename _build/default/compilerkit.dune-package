@@ -21,6 +21,21 @@
    frontend/compilerkit_frontend.cmi
    frontend/compilerkit_frontend.cmt
    frontend/compilerkit_frontend.ml
+   frontend/compilerkit_frontend__.cmi
+   frontend/compilerkit_frontend__.cmt
+   frontend/compilerkit_frontend__.ml
+   frontend/compilerkit_frontend__Error_reporter.cmi
+   frontend/compilerkit_frontend__Error_reporter.cmt
+   frontend/compilerkit_frontend__Lexer_utils.cmi
+   frontend/compilerkit_frontend__Lexer_utils.cmt
+   frontend/compilerkit_frontend__Position.cmi
+   frontend/compilerkit_frontend__Position.cmt
+   frontend/compilerkit_frontend__Pratt.cmi
+   frontend/compilerkit_frontend__Pratt.cmt
+   frontend/error_reporter.ml
+   frontend/lexer_utils.ml
+   frontend/position.ml
+   frontend/pratt.ml
    pir/attributes.ml
    pir/builder.ml
    pir/compilerkit_pir.cma
@@ -119,12 +134,40 @@
  (main_module_name Compilerkit_frontend)
  (modes byte)
  (modules
-  (singleton
-   (obj_name compilerkit_frontend)
-   (visibility public)
-   (source
-    (path Compilerkit_frontend)
-    (impl (path frontend/compilerkit_frontend.ml))))))
+  (wrapped
+   (group
+    (alias
+     (obj_name compilerkit_frontend__)
+     (visibility public)
+     (kind alias)
+     (source
+      (path Compilerkit_frontend__)
+      (impl (path frontend/compilerkit_frontend__.ml-gen))))
+    (name Compilerkit_frontend)
+    (modules
+     (module
+      (obj_name compilerkit_frontend)
+      (visibility public)
+      (source
+       (path Compilerkit_frontend)
+       (impl (path frontend/compilerkit_frontend.ml))))
+     (module
+      (obj_name compilerkit_frontend__Error_reporter)
+      (visibility public)
+      (source (path Error_reporter) (impl (path frontend/error_reporter.ml))))
+     (module
+      (obj_name compilerkit_frontend__Lexer_utils)
+      (visibility public)
+      (source (path Lexer_utils) (impl (path frontend/lexer_utils.ml))))
+     (module
+      (obj_name compilerkit_frontend__Position)
+      (visibility public)
+      (source (path Position) (impl (path frontend/position.ml))))
+     (module
+      (obj_name compilerkit_frontend__Pratt)
+      (visibility public)
+      (source (path Pratt) (impl (path frontend/pratt.ml))))))
+   (wrapped true))))
 (library
  (name compilerkit.pir)
  (kind normal)

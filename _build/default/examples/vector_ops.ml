@@ -36,7 +36,6 @@ let build_dot_product () =
       
       (* In a real implementation, we'd extract and sum elements *)
       (* For now, just extract first element as placeholder *)
-      let zero_val = Values.create_simple_value (Types.Scalar Types.I32) in
       let extract_instr = Instructions.Vector (Instructions.ExtractLane (prod, 0)) in
       let (s4, first_elem) = emit_instr ~result:"elem0" extract_instr (Attributes.empty ()) s3 in
       

@@ -1,4 +1,4 @@
-# dune test
+# dune runtest
 # OCAMLPARAM: unset
 # Shared cache: enabled-except-user-rules
 # Shared cache location: /Users/ummonkarpe/.cache/dune/db
@@ -13,106 +13,39 @@
 #  ; build_dir = In_build_dir "default"
 #  ; instrument_with = []
 #  }
-$ /Users/ummonkarpe/.opam/4.14.2/bin/ocamlc.opt -config > /var/folders/7_/zrr90vd15tj2szg8rtjyqtzh0000gn/T/dune_b25e6d_output
-$ (cd _build/default/test && ./test_runner_simple.bc)
+$ /Users/ummonkarpe/.opam/4.14.2/bin/ocamlc.opt -config > /var/folders/7_/zrr90vd15tj2szg8rtjyqtzh0000gn/T/dune_3fa18a_output
+$ (cd _build/default && /Users/ummonkarpe/.opam/4.14.2/bin/ocamldep.opt -modules -impl test/test_parser_combinators.ml) > _build/default/test/.test_parser_combinators.eobjs/dune__exe__Test_parser_combinators.impl.d
+$ (cd _build/default && /Users/ummonkarpe/.opam/4.14.2/bin/ocamlc.opt -w @1..3@5..28@31..39@43@46..47@49..57@61..62@67@69-40 -strict-sequence -strict-formats -short-paths -keep-locs -g -bin-annot -I test/.test_parser_combinators.eobjs/byte -I lib/common/.compilerkit_common.objs/byte -I lib/frontend/.compilerkit_frontend.objs/byte -I lib/pir/.compilerkit_pir.objs/byte -intf-suffix .ml -no-alias-deps -opaque -open Dune__exe -o test/.test_parser_combinators.eobjs/byte/dune__exe__Test_parser_combinators.cmo -c -impl test/test_parser_combinators.ml)
+$ (cd _build/default && /Users/ummonkarpe/.opam/4.14.2/bin/ocamlc.opt -w @1..3@5..28@31..39@43@46..47@49..57@61..62@67@69-40 -strict-sequence -strict-formats -short-paths -keep-locs -g -o test/test_parser_combinators.bc lib/common/compilerkit_common.cma lib/pir/compilerkit_pir.cma lib/frontend/compilerkit_frontend.cma test/.test_parser_combinators.eobjs/byte/dune__exe.cmo test/.test_parser_combinators.eobjs/byte/dune__exe__Test_parser_combinators.cmo)
+$ (cd _build/default/test && ./test_parser_combinators.bc)
 >
-> === TOCT Test Suite ===
+> === Parser Combinator Tests ===
 >
-> ✓ Build system test passed
+> Testing basic combinators...
+> ✓ Basic combinators passed
 >
-> Running PIR Types tests...
-> ✓ All PIR Types tests passed
+> Testing token operations...
+> ✓ Token operations passed
 >
-> Running PIR Attributes tests...
-> ✓ All PIR Attributes tests passed
+> Testing choice and repetition...
+> ✓ Choice and repetition passed
 >
-> Running PIR Values tests...
-> ✓ All PIR Values tests passed
+> Testing sequence combinators...
+> ✓ Sequence combinators passed
 >
-> Running PIR Instructions tests...
-> ✓ All PIR Instructions tests passed
+> Testing Pratt expression parser...
+> ✓ Pratt parser passed
 >
-> Running PIR Builder tests...
-> ✓ All PIR Builder tests passed
+> Testing error handling...
+> ✓ Error handling passed
 >
-> Running PIR Pretty Printer tests...
-> ✓ All PIR Pretty Printer tests passed
+> Testing position tracking...
+> ✓ Position tracking passed
 >
-> Running Builder + Pretty Printer integration tests...
-> ✓ All Builder + Pretty Printer integration tests passed
+> Testing lexer utilities...
+> ✓ Lexer utilities passed
 >
-> Running PIR Linter tests...
-> ✓ All PIR Linter tests passed
+> Testing error reporter...
+> ✓ Error reporter passed
 >
-> Running PIR Parser tests...
-> ✓ Parser tests skipped (see test_pir_spec.ml)
->
-> 🎉 All TOCT tests passed! 🎉
-$ (cd _build/default/test && ./test_pretty_printer_spec.bc)
->
-> === Pretty Printer Spec Compliance Tests ===
->
-> Testing pretty printer spec compliance...
-> Pretty printed output:
-> ; PIR v0.9
->
-> type Vec2 = struct<<f32, f32>>
->
-> global counter:i32 init 0
->
-> func add_one(x:i32, one:i32) -> i32
-> entry:
->   v3 = add.i32 v1, v2
->   ret v3
-> endfunc
->
-> func test_ops(one:i32) -> void
-> entry:
->   v6 = load.i32 [...]
->   v8 = call.void v7, v6, v4
->   store.ptr v8, [v9]
->   ret
-> endfunc
-> ✓ Pretty printer output format verified
->
-> Testing instruction pretty printing...
->   x = add.i32 a, b
->   y = mul.nsw.i32 x, c
->   cmp = icmp.eq.i32 x, y
->   f = fcmp.olt.f32 a, b
->   v = load.i32 [ptr]
->   store.i32 val, [ptr]
->   res = call.void func, arg1, arg2
-> ✓ Instruction formats verified
->
-> 🎉 All pretty printer spec compliance tests passed! 🎉
-$ (cd _build/default/test && ./test_pir_spec.bc)
->
-> === PIR Spec Compliance Tests ===
->
-> Testing PIR lexer with spec syntax...
->   Test 4 tokens: IDENT(x) EQUALS ADD DOT NSW DOT I32 IDENT(a) COMMA IDENT(b) EOF 
-> ✓ PIR lexer tests passed
->
-> Testing PIR parser with simple module...
-> ✓ Simple parser test passed
->
-> Testing PIR parser with type declarations...
-> ✓ Type declaration tests passed
->
-> Testing PIR parser with instructions...
-> ✓ Instruction parsing tests passed
->
-> Testing PIR parser with vector operations...
-> ✓ Vector operation tests passed
->
-> Testing PIR parser with cast operations...
-> ✓ Cast operation tests passed
->
-> Testing PIR parser with annotations...
-> ✓ Annotation tests passed (parsing only)
->
-> Testing PIR parser with complete module...
-> ✓ Complete module test passed
->
-> 🎉 All PIR spec compliance tests passed! 🎉
+> 🎉 All parser combinator tests passed! 🎉

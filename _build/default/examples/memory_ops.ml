@@ -22,7 +22,7 @@ let build_struct_example () =
       let (s4, ptr) = alloca "point_ptr" size_val 8 s3 in
       
       (* Store x at offset 0 *)
-      let (s5, zero) = const_int (Types.Scalar Types.I32) 0 s4 in
+      let (s5, _zero) = const_int (Types.Scalar Types.I32) 0 s4 in
       let field0_instr = Instructions.Address (Instructions.FieldAddr (ptr, 0)) in
       let (s6, x_ptr) = emit_instr ~result:"x_ptr" field0_instr (Attributes.empty ()) s5 in
       let (s7, ()) = store x x_ptr s6 in
@@ -44,8 +44,8 @@ let build_array_sum () =
       let open Builder in
       
       (* Get parameters *)
-      let (s1, arr) = lookup_value "arr" state in
-      let (s2, len) = lookup_value "len" s1 in
+      let (s1, _arr) = lookup_value "arr" state in
+      let (s2, _len) = lookup_value "len" s1 in
       
       (* Initialize sum = 0 and i = 0 *)
       let (s3, zero) = const_int (Types.Scalar Types.I32) 0 s2 in
