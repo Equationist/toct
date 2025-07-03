@@ -1,0 +1,4 @@
+(library
+ (public_name compilerkit.backend)
+ (name compilerkit_backend)
+ (libraries compilerkit_common compilerkit_pir))

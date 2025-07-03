@@ -1,0 +1,4 @@
+(library
+ (public_name compilerkit.frontend)
+ (name compilerkit_frontend)
+ (libraries compilerkit_common compilerkit_pir))

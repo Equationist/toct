@@ -1,0 +1,5 @@
+(test
+ (name test_runner)
+ (package compilerkit-test)
+ (modes byte)
+ (libraries compilerkit_common compilerkit_pir compilerkit_frontend compilerkit_backend compilerkit_target))

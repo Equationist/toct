@@ -1,0 +1,169 @@
+(lang dune 3.19)
+(name compilerkit)
+(sections (lib .) (libexec .) (bin ../../bin) (doc ../../doc/compilerkit))
+(files
+ (lib
+  (META
+   backend/compilerkit_backend.a
+   backend/compilerkit_backend.cma
+   backend/compilerkit_backend.cmi
+   backend/compilerkit_backend.cmt
+   backend/compilerkit_backend.cmx
+   backend/compilerkit_backend.cmxa
+   backend/compilerkit_backend.ml
+   common/compilerkit_common.a
+   common/compilerkit_common.cma
+   common/compilerkit_common.cmi
+   common/compilerkit_common.cmt
+   common/compilerkit_common.cmx
+   common/compilerkit_common.cmxa
+   common/compilerkit_common.ml
+   compilerkit.a
+   compilerkit.cma
+   compilerkit.cmi
+   compilerkit.cmt
+   compilerkit.cmx
+   compilerkit.cmxa
+   compilerkit.ml
+   dune-package
+   frontend/compilerkit_frontend.a
+   frontend/compilerkit_frontend.cma
+   frontend/compilerkit_frontend.cmi
+   frontend/compilerkit_frontend.cmt
+   frontend/compilerkit_frontend.cmx
+   frontend/compilerkit_frontend.cmxa
+   frontend/compilerkit_frontend.ml
+   pir/compilerkit_pir.a
+   pir/compilerkit_pir.cma
+   pir/compilerkit_pir.cmi
+   pir/compilerkit_pir.cmt
+   pir/compilerkit_pir.cmx
+   pir/compilerkit_pir.cmxa
+   pir/compilerkit_pir.ml
+   target/compilerkit_target.a
+   target/compilerkit_target.cma
+   target/compilerkit_target.cmi
+   target/compilerkit_target.cmt
+   target/compilerkit_target.cmx
+   target/compilerkit_target.cmxa
+   target/compilerkit_target.ml))
+ (libexec
+  (backend/compilerkit_backend.cmxs
+   common/compilerkit_common.cmxs
+   compilerkit.cmxs
+   frontend/compilerkit_frontend.cmxs
+   pir/compilerkit_pir.cmxs
+   target/compilerkit_target.cmxs))
+ (bin (pir-objdump pirc))
+ (doc (README)))
+(library
+ (name compilerkit)
+ (kind normal)
+ (archives (byte compilerkit.cma) (native compilerkit.cmxa))
+ (plugins (byte compilerkit.cma) (native compilerkit.cmxs))
+ (native_archives compilerkit.a)
+ (main_module_name Compilerkit)
+ (modes byte native)
+ (modules
+  (wrapped
+   (group
+    (alias
+     (obj_name compilerkit)
+     (visibility public)
+     (kind alias)
+     (source (path Compilerkit) (impl (path compilerkit.ml-gen))))
+    (name Compilerkit))
+   (wrapped true))))
+(library
+ (name compilerkit.backend)
+ (kind normal)
+ (archives
+  (byte backend/compilerkit_backend.cma)
+  (native backend/compilerkit_backend.cmxa))
+ (plugins
+  (byte backend/compilerkit_backend.cma)
+  (native backend/compilerkit_backend.cmxs))
+ (native_archives backend/compilerkit_backend.a)
+ (requires compilerkit.common compilerkit.pir)
+ (main_module_name Compilerkit_backend)
+ (modes byte native)
+ (modules
+  (singleton
+   (obj_name compilerkit_backend)
+   (visibility public)
+   (source
+    (path Compilerkit_backend)
+    (impl (path backend/compilerkit_backend.ml))))))
+(library
+ (name compilerkit.common)
+ (kind normal)
+ (archives
+  (byte common/compilerkit_common.cma)
+  (native common/compilerkit_common.cmxa))
+ (plugins
+  (byte common/compilerkit_common.cma)
+  (native common/compilerkit_common.cmxs))
+ (native_archives common/compilerkit_common.a)
+ (main_module_name Compilerkit_common)
+ (modes byte native)
+ (modules
+  (singleton
+   (obj_name compilerkit_common)
+   (visibility public)
+   (source
+    (path Compilerkit_common)
+    (impl (path common/compilerkit_common.ml))))))
+(library
+ (name compilerkit.frontend)
+ (kind normal)
+ (archives
+  (byte frontend/compilerkit_frontend.cma)
+  (native frontend/compilerkit_frontend.cmxa))
+ (plugins
+  (byte frontend/compilerkit_frontend.cma)
+  (native frontend/compilerkit_frontend.cmxs))
+ (native_archives frontend/compilerkit_frontend.a)
+ (requires compilerkit.common compilerkit.pir)
+ (main_module_name Compilerkit_frontend)
+ (modes byte native)
+ (modules
+  (singleton
+   (obj_name compilerkit_frontend)
+   (visibility public)
+   (source
+    (path Compilerkit_frontend)
+    (impl (path frontend/compilerkit_frontend.ml))))))
+(library
+ (name compilerkit.pir)
+ (kind normal)
+ (archives (byte pir/compilerkit_pir.cma) (native pir/compilerkit_pir.cmxa))
+ (plugins (byte pir/compilerkit_pir.cma) (native pir/compilerkit_pir.cmxs))
+ (native_archives pir/compilerkit_pir.a)
+ (requires compilerkit.common)
+ (main_module_name Compilerkit_pir)
+ (modes byte native)
+ (modules
+  (singleton
+   (obj_name compilerkit_pir)
+   (visibility public)
+   (source (path Compilerkit_pir) (impl (path pir/compilerkit_pir.ml))))))
+(library
+ (name compilerkit.target)
+ (kind normal)
+ (archives
+  (byte target/compilerkit_target.cma)
+  (native target/compilerkit_target.cmxa))
+ (plugins
+  (byte target/compilerkit_target.cma)
+  (native target/compilerkit_target.cmxs))
+ (native_archives target/compilerkit_target.a)
+ (requires compilerkit.common compilerkit.pir compilerkit.backend)
+ (main_module_name Compilerkit_target)
+ (modes byte native)
+ (modules
+  (singleton
+   (obj_name compilerkit_target)
+   (visibility public)
+   (source
+    (path Compilerkit_target)
+    (impl (path target/compilerkit_target.ml))))))

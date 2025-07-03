@@ -1,0 +1,13 @@
+(executable
+ (public_name pirc)
+ (name pirc)
+ (package compilerkit)
+ (modes byte)
+ (libraries compilerkit_common compilerkit_pir compilerkit_frontend compilerkit_backend compilerkit_target))
+
+(executable
+ (public_name pir-objdump)
+ (name pir_objdump)
+ (package compilerkit)
+ (modes byte)
+ (libraries compilerkit_common compilerkit_pir))

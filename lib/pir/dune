@@ -1,0 +1,4 @@
+(library
+ (public_name compilerkit.pir)
+ (name compilerkit_pir)
+ (libraries compilerkit_common))
