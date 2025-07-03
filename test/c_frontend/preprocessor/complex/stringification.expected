@@ -1,0 +1,13 @@
+Stringification tests:
+STRINGIFY(hello) = hello
+STRINGIFY(123) = 123
+STRINGIFY(value + 10) = value + 10
+
+Variable printing:
+value = 42
+result = 100
+
+Assertion tests:
+Assert: value == 42 -> PASS
+Assert: result == 100 -> PASS
+Assert: value * 2 == 84 -> PASS

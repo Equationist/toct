@@ -1,0 +1,104 @@
+(library
+ (name c_frontend)
+ (libraries unix)
+ (modules preprocessor lexer ast parser))
+
+(executable
+ (name test_preprocessor)
+ (libraries c_frontend)
+ (modules test_preprocessor)
+ (modes byte))
+
+(executable
+ (name debug_preprocessor)
+ (libraries c_frontend)
+ (modules debug_preprocessor)
+ (modes byte))
+
+(executable
+ (name simple_test)
+ (libraries c_frontend)
+ (modules simple_test)
+ (modes byte))
+
+(executable
+ (name test_with_actual_files)
+ (libraries c_frontend)
+ (modules test_with_actual_files)
+ (modes byte))
+
+(executable
+ (name trace_preprocessor)
+ (libraries c_frontend)
+ (modules trace_preprocessor)
+ (modes byte))
+
+(executable
+ (name test_conditional)
+ (libraries c_frontend)
+ (modules test_conditional)
+ (modes byte))
+
+(executable
+ (name debug_conditional)
+ (libraries c_frontend)
+ (modules debug_conditional)
+ (modes byte))
+
+(executable
+ (name debug_expr)
+ (libraries c_frontend)
+ (modules debug_expr)
+ (modes byte))
+
+(executable
+ (name debug_conditional_stack)
+ (libraries c_frontend)
+ (modules debug_conditional_stack)
+ (modes byte))
+
+(executable
+ (name print_tokens)
+ (libraries c_frontend)
+ (modules print_tokens)
+ (modes byte))
+
+(executable
+ (name minimal_test)
+ (libraries c_frontend)
+ (modules minimal_test)
+ (modes byte))
+
+(executable
+ (name blank_line_test)
+ (libraries c_frontend)
+ (modules blank_line_test)
+ (modes byte))
+
+(executable
+ (name trace_full_test)
+ (libraries c_frontend)
+ (modules trace_full_test)
+ (modes byte))
+
+(executable
+ (name test_endif)
+ (libraries c_frontend)
+ (modules test_endif)
+ (modes byte))
+
+(executable
+ (name test_lexer)
+ (libraries c_frontend)
+ (modules test_lexer)
+ (modes byte))
+
+(executable
+ (name test_parser)
+ (libraries c_frontend)
+ (modules test_parser)
+ (modes byte))
+
+(rule
+ (alias runtest)
+ (action (run ./test_preprocessor.exe)))

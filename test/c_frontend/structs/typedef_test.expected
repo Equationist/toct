@@ -1,0 +1,5 @@
+Integer: 42
+String: Hello
+Point: (10, 20)
+Node1 data: 100
+Node2 data: 200, next data: 100

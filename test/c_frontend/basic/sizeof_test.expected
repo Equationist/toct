@@ -1,0 +1,7 @@
+sizeof(int): 4
+sizeof(char): 1
+sizeof(double): 8
+sizeof(int*): 8
+sizeof(arr): 40
+sizeof(struct TestStruct): 16
+sizeof(s): 16

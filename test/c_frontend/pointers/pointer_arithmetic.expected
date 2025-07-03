@@ -1,0 +1,5 @@
+Original pointer: *ptr = 1
+After ptr++: *ptr = 2
+After ptr += 2: *ptr = 4
+After ptr--: *ptr = 3
+Pointer difference: 2

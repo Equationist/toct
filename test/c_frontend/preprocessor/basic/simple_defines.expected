@@ -1,0 +1,4 @@
+MAX_SIZE = 100
+PI = 3.14159
+TRUE = 1, FALSE = 0
+Greeting: Hello, World!

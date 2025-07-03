@@ -46,8 +46,10 @@ type machine_op =
   | ADD of reg * reg * reg               (* dst = src1 + src2 *)
   | SUB of reg * reg * reg               (* dst = src1 - src2 *)
   | MUL of reg * reg * reg               (* dst = src1 * src2 *)
-  | DIV of reg * reg * reg               (* dst = src1 / src2 *)
-  | MOD of reg * reg * reg               (* dst = src1 % src2 *)
+  | DIV of reg * reg * reg               (* dst = src1 / src2 (signed) *)
+  | UDIV of reg * reg * reg              (* dst = src1 / src2 (unsigned) *)
+  | MOD of reg * reg * reg               (* dst = src1 % src2 (signed) *)
+  | UMOD of reg * reg * reg              (* dst = src1 % src2 (unsigned) *)
   | NEG of reg * reg                     (* dst = -src *)
   
   (* Bitwise *)

@@ -1,0 +1,6 @@
+data.i = 42
+data.f = 3.14
+data.i after setting f = 1078523331
+data.c = A
+data.c as int = 65
+sizeof(union Data) = 4

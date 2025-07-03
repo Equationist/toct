@@ -1,0 +1,4 @@
+Direct access: Name: Alice, Age: 25
+Pointer access: Name: Alice, Age: 25
+Via function: Name: Bob, Age: 30
+After ptr->age = 31: Name: Bob, Age: 31

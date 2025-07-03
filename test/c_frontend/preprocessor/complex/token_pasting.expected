@@ -1,0 +1,14 @@
+Token pasting tests:
+CONCAT(hel, lo) -> hello
+var_counter = 5
+var_ratio = 3.14
+
+Function calls via token pasting:
+func_one() = 10
+func_two() = 20
+func_test() = 99
+
+Struct field access:
+s.x = 100
+s.y = 200
+s.count = 42

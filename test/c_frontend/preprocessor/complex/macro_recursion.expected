@@ -1,0 +1,8 @@
+Macro recursion tests:
+Self-referential macros (should not cause infinite expansion):
+FOO expands to: FOO (literal)
+
+Repeat patterns:
+REPEAT_1: 1 
+REPEAT_2: 2 2 
+REPEAT_3: 3 3 3

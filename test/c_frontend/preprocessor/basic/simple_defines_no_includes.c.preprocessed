@@ -1,0 +1,9 @@
+ 
+
+int main() {
+    int size =  100;
+    float pi_val =  3.14159;
+    int flag =  1;
+    
+    return 0;
+}

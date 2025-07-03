@@ -1,0 +1,6 @@
+DEBUG: Simple message
+DEBUG: Value is 42
+DEBUG: Two values: 10 and hello
+[INFO] System started
+[ERROR] Failed with code 404
+[WARN] Memory usage: 85%

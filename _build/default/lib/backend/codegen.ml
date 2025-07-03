@@ -159,3 +159,9 @@ let generate_for_target target m =
   | X64 -> X64CodeGen.generate_module m
   | ARM64 -> ARM64CodeGen.generate_module m
   | _ -> failwith "Target not implemented yet"
+
+(* Generate object file *)
+let generate_object_file ~target ~filename m =
+  match target with
+  | ARM64 -> Macho_writer.write_macho_file filename m
+  | _ -> failwith "Object file generation not implemented for this target"

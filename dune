@@ -1,0 +1,4 @@
+(executable
+ (name test_macho_output)
+ (modules test_macho_output)
+ (libraries compilerkit_pir compilerkit_backend))

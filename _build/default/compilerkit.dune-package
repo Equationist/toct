@@ -23,6 +23,8 @@
    backend/compilerkit_backend__Instruction_selection.cmt
    backend/compilerkit_backend__Machine.cmi
    backend/compilerkit_backend__Machine.cmt
+   backend/compilerkit_backend__Macho_writer.cmi
+   backend/compilerkit_backend__Macho_writer.cmt
    backend/compilerkit_backend__Register_allocator.cmi
    backend/compilerkit_backend__Register_allocator.cmt
    backend/compilerkit_backend__Ssa_block_params.cmi
@@ -34,6 +36,7 @@
    backend/dominance.ml
    backend/instruction_selection.ml
    backend/machine.ml
+   backend/macho_writer.ml
    backend/register_allocator.ml
    backend/ssa_block_params.ml
    backend/ssa_verify.ml
@@ -186,6 +189,10 @@
       (obj_name compilerkit_backend__Machine)
       (visibility public)
       (source (path Machine) (impl (path backend/machine.ml))))
+     (module
+      (obj_name compilerkit_backend__Macho_writer)
+      (visibility public)
+      (source (path Macho_writer) (impl (path backend/macho_writer.ml))))
      (module
       (obj_name compilerkit_backend__Register_allocator)
       (visibility public)

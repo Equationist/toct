@@ -15,6 +15,9 @@ module Instruction_selection = Compilerkit_backend__Instruction_selection
 (** @canonical Compilerkit_backend.Machine *)
 module Machine = Compilerkit_backend__Machine
 
+(** @canonical Compilerkit_backend.Macho_writer *)
+module Macho_writer = Compilerkit_backend__Macho_writer
+
 (** @canonical Compilerkit_backend.Register_allocator *)
 module Register_allocator = Compilerkit_backend__Register_allocator
 

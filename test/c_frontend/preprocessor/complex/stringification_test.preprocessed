@@ -1,0 +1,8 @@
+int main() {
+    char* str_hello = "hello";
+    char* str_world = "world";
+    char* test1 = "foo";
+    char* test2 = "123";
+    char* test3 = "a + b";
+    return 0;
+}

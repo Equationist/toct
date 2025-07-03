@@ -1,0 +1,14 @@
+Array elements:
+arr[0] = 10
+arr[1] = 20
+arr[2] = 30
+arr[3] = 40
+arr[4] = 50
+Array via pointer arithmetic:
+*(arr + 0) = 10
+*(arr + 1) = 20
+*(arr + 2) = 30
+*(arr + 3) = 40
+*(arr + 4) = 50
+After arr[2] = 99:
+arr[2] = 99

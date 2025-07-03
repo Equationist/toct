@@ -1,0 +1,6 @@
+Initial x = 5, y = 3
+UNSAFE_MAX(++x, y) = 7
+x after UNSAFE_MAX = 7
+Reset x = 5
+UNSAFE_SQUARE(increment_counter()) = 2
+Counter called multiple times due to macro expansion

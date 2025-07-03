@@ -116,7 +116,7 @@ The **Tiny OCaml Compiler Toolkit (TOCT)** is a modular compiler infrastructure 
   - [ ] Pass #11: Block layout optimization
     - [ ] **Tests**: Block reordering, branch probability estimation
 
-- [ ] **9. Code Generation**
+- [ ] **11. Code Generation**
   - [ ] Pass #12: Instruction selection via BURS
     - [ ] **Tests**: Pattern matching, instruction selection trees
   - [ ] Pass #13: Redundant compare elimination
@@ -128,14 +128,14 @@ The **Tiny OCaml Compiler Toolkit (TOCT)** is a modular compiler infrastructure 
 
 ### Phase 4: Target Implementation (Low Priority)
 
-- [ ] **10. ARM64 Backend**
-  - [ ] ABI implementation (AAPCS64)
-  - [ ] Instruction encoding
-  - [ ] Calling convention handling
-  - [ ] Object file generation (Mach-O)
-  - [ ] **Tests**: Instruction encoding, ABI compliance, object file format
+- [x] **12. ARM64 Backend** ✅ COMPLETE (2025-07-03)
+  - [x] ABI implementation (AAPCS64)
+  - [x] Instruction encoding (basic patterns)
+  - [x] Calling convention handling
+  - [x] Object file generation (Mach-O)
+  - [x] **Tests**: Comprehensive backend tests including integer ops, floating-point, comparisons, conversions
 
-- [ ] **11. Example C89 Frontend**
+- [ ] **13. Example C89 Frontend**
   - [ ] C89 lexer/parser
   - [ ] AST to PIR translation
   - [ ] Basic C type system
@@ -144,7 +144,7 @@ The **Tiny OCaml Compiler Toolkit (TOCT)** is a modular compiler infrastructure 
 
 ### Phase 5: End-to-End Testing & Validation
 
-- [ ] **12. Integration Tests**
+- [ ] **14. Integration Tests**
   - [ ] Complete compilation pipeline tests
   - [ ] Performance validation (target: 94-97% of GCC -O2)
   - [ ] Regression testing framework
@@ -265,6 +265,22 @@ compilerkit/
   - Developed SSA verification pass with comprehensive error checking
   - Added test suite for dominance and SSA properties
   - Note: Implementation requires adjustments to match current PIR value representation
+- **2025-07-03**: Completed PIR Extended Features (Phase 3, Section 5.1):
+  - Added module and extern declarations to PIR specification
+  - Implemented new core operations: freeze, extractvalue, insertvalue, va_arg, fence
+  - Documented value naming conventions and attribute namespaces
+  - Updated PIR specification to version 0.9.1
+- **2025-07-03**: Skipped optimization passes to focus on end-to-end system
+  - Implemented portable code generation infrastructure with BURS instruction selection
+  - Created linear scan register allocator with spilling support
+  - Built abstract machine interface supporting 32/64-bit architectures
+- **2025-07-03**: Completed ARM64 Backend (Phase 4):
+  - Implemented complete ARM64 instruction patterns for integer, floating-point, and control flow
+  - Added AAPCS64 calling convention support
+  - Created sophisticated constant materialization with MOVZ/MOVK sequences
+  - Implemented basic Mach-O object file writer for macOS
+  - Added comprehensive test suite for ARM64 code generation
+  - Backend supports both integer and floating-point operations with type conversions
 
 ## References
 

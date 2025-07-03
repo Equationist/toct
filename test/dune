@@ -45,3 +45,15 @@
  (package compilerkit-test)
  (modes byte)
  (libraries compilerkit_common compilerkit_pir compilerkit_backend))
+
+(test
+ (name test_arm64_backend)
+ (package compilerkit-test)
+ (modes byte)
+ (libraries compilerkit_common compilerkit_pir compilerkit_backend))
+
+(test
+ (name test_enhanced_arm64)
+ (package compilerkit-test)
+ (modes byte)
+ (libraries compilerkit_common compilerkit_pir compilerkit_backend))

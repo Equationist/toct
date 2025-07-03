@@ -1,0 +1,3 @@
+Direct call: add(10, 5) = 15
+Function pointer: add(10, 5) = 15
+Function pointer: subtract(10, 5) = 5
