@@ -1,7 +1,7 @@
 (* SSA Form Verification *)
 
 open Compilerkit_pir
-open Instructions
+module I = Instructions
 
 module ValueSet = Set.Make(Int)
 module BlockSet = Set.Make(String)
@@ -35,36 +35,36 @@ and ssa_stats = {
 }
 
 (* Collect all definitions in a function *)
-let collect_definitions (func: func) : string ValueMap.t =
+let collect_definitions (func: I.func) : string ValueMap.t =
   let defs = ref ValueMap.empty in
   
   (* Block parameters are defined at block entry *)
-  List.iter (fun block ->
+  List.iter (fun (block : I.basic_block) ->
     List.iter (fun (_, _) ->
       (* Block parameters would be handled here if we tracked them as values *)
       ()
-    ) block.params
-  ) func.blocks;
+    ) block.I.params
+  ) func.I.blocks;
   
   (* Instruction definitions *)
-  List.iter (fun block ->
+  List.iter (fun (block : I.basic_block) ->
     List.iter (fun inst ->
-      match inst.result with
+      match inst.I.result with
       | Some value ->
         let value_id = Values.get_id value in
         (match ValueMap.find_opt value_id !defs with
          | Some other_block ->
-           raise (SSAError (MultipleDefinitions (value_id, [other_block; block.label])))
+           raise (SSAError (MultipleDefinitions (value_id, [other_block; block.I.label])))
          | None ->
-           defs := ValueMap.add value_id block.label !defs)
+           defs := ValueMap.add value_id block.I.label !defs)
       | None -> ()
-    ) block.instructions
-  ) func.blocks;
+    ) block.I.instructions
+  ) func.I.blocks;
   
   !defs
 
 (* Collect all uses of values *)
-let collect_uses (func: func) : (int * string) list =
+let collect_uses (func: I.func) : (int * string) list =
   let uses = ref [] in
   
   let add_use block_label value =
@@ -72,100 +72,100 @@ let collect_uses (func: func) : (int * string) list =
     uses := (value_id, block_label) :: !uses
   in
   
-  let add_const_uses block_label const_val = 
+  let add_const_uses _block_label _const_val = 
     (* Constants don't count as uses for SSA purposes *)
     ()
   in
   
-  List.iter (fun block ->
+  List.iter (fun (block : I.basic_block) ->
     List.iter (fun inst ->
-      match inst.instr with
-      | Instructions.Binop (_, _, v1, v2) ->
-        add_use block.label v1;
-        add_use block.label v2
-      | Instructions.Icmp (_, v1, v2) ->
-        add_use block.label v1;
-        add_use block.label v2
-      | Instructions.Fcmp (_, v1, v2) ->
-        add_use block.label v1;
-        add_use block.label v2
-      | Instructions.Select (cond, v_true, v_false) ->
-        add_use block.label cond;
-        add_use block.label v_true;
-        add_use block.label v_false
-      | Instructions.Memory memop ->
+      match inst.I.instr with
+      | I.Binop (_, _, v1, v2) ->
+        add_use block.I.label v1;
+        add_use block.I.label v2
+      | I.Icmp (_, v1, v2) ->
+        add_use block.I.label v1;
+        add_use block.I.label v2
+      | I.Fcmp (_, v1, v2) ->
+        add_use block.I.label v1;
+        add_use block.I.label v2
+      | I.Select (cond, v_true, v_false) ->
+        add_use block.I.label cond;
+        add_use block.I.label v_true;
+        add_use block.I.label v_false
+      | I.Memory memop ->
         (match memop with
-         | Instructions.Load _ -> ()
-         | Instructions.Store (value, ptr) ->
-           add_use block.label value;
-           add_use block.label ptr
-         | Instructions.Alloca (size, _) ->
-           add_use block.label size
-         | Instructions.Memcpy (dst, src, bytes) ->
-           add_use block.label dst;
-           add_use block.label src;
-           add_use block.label bytes
-         | Instructions.Memset (dst, byte, bytes) ->
-           add_use block.label dst;
-           add_use block.label byte;
-           add_use block.label bytes)
-      | Instructions.Address addrop ->
+         | I.Load _ -> ()
+         | I.Store (value, ptr) ->
+           add_use block.I.label value;
+           add_use block.I.label ptr
+         | I.Alloca (size, _) ->
+           add_use block.I.label size
+         | I.Memcpy (dst, src, bytes) ->
+           add_use block.I.label dst;
+           add_use block.I.label src;
+           add_use block.I.label bytes
+         | I.Memset (dst, byte, bytes) ->
+           add_use block.I.label dst;
+           add_use block.I.label byte;
+           add_use block.I.label bytes)
+      | I.Address addrop ->
         (match addrop with
-         | Instructions.Gep (base, idx) ->
-           add_use block.label base;
-           add_use block.label idx
-         | Instructions.FieldAddr (base, _) ->
-           add_use block.label base
-         | Instructions.PtrAdd (base, offset) ->
-           add_use block.label base;
-           add_use block.label offset)
-      | Instructions.Cast castop ->
+         | I.Gep (base, idx) ->
+           add_use block.I.label base;
+           add_use block.I.label idx
+         | I.FieldAddr (base, _) ->
+           add_use block.I.label base
+         | I.PtrAdd (base, offset) ->
+           add_use block.I.label base;
+           add_use block.I.label offset)
+      | I.Cast castop ->
         (match castop with
-         | Instructions.Bitcast v
-         | Instructions.Trunc (v, _)
-         | Instructions.Zext (v, _)
-         | Instructions.Sext (v, _)
-         | Instructions.Fptrunc (v, _)
-         | Instructions.Fpext (v, _)
-         | Instructions.Fptoui (v, _)
-         | Instructions.Fptosi (v, _)
-         | Instructions.Uitofp (v, _)
-         | Instructions.Sitofp (v, _) ->
-           add_use block.label v)
-      | Instructions.Vector vecop ->
+         | I.Bitcast v
+         | I.Trunc (v, _)
+         | I.Zext (v, _)
+         | I.Sext (v, _)
+         | I.Fptrunc (v, _)
+         | I.Fpext (v, _)
+         | I.Fptoui (v, _)
+         | I.Fptosi (v, _)
+         | I.Uitofp (v, _)
+         | I.Sitofp (v, _) ->
+           add_use block.I.label v)
+      | I.Vector vecop ->
         (match vecop with
-         | Instructions.Splat (v, _) ->
-           add_use block.label v
-         | Instructions.Shuffle (v1, v2, _) ->
-           add_use block.label v1;
-           add_use block.label v2
-         | Instructions.ExtractLane (v, _) ->
-           add_use block.label v
-         | Instructions.InsertLane (v, _, scalar) ->
-           add_use block.label v;
-           add_use block.label scalar)
-      | Instructions.Call callop ->
+         | I.Splat (v, _) ->
+           add_use block.I.label v
+         | I.Shuffle (v1, v2, _) ->
+           add_use block.I.label v1;
+           add_use block.I.label v2
+         | I.ExtractLane (v, _) ->
+           add_use block.I.label v
+         | I.InsertLane (v, _, scalar) ->
+           add_use block.I.label v;
+           add_use block.I.label scalar)
+      | I.Call callop ->
         (match callop with
-         | Instructions.Call (callee, args)
-         | Instructions.TailCall (callee, args) ->
-           add_use block.label callee;
-           List.iter (add_use block.label) args)
-      | Instructions.Phi operands ->
-        List.iter (fun (value, _) -> add_use block.label value) operands
-      | Instructions.Const const_val ->
-        add_const_uses block.label const_val
-    ) block.instructions;
+         | I.Call (callee, args)
+         | I.TailCall (callee, args) ->
+           add_use block.I.label callee;
+           List.iter (add_use block.I.label) args)
+      | I.Phi operands ->
+        List.iter (fun (value, _) -> add_use block.I.label value) operands
+      | I.Const const_val ->
+        add_const_uses block.I.label const_val
+    ) block.I.instructions;
     
     (* Check terminator uses *)
-    match block.terminator with
-    | Instructions.Br (cond, _, _) ->
-      add_use block.label cond
-    | Instructions.Ret (Some v) ->
-      add_use block.label v
-    | Instructions.Switch (value, _, _) ->
-      add_use block.label value
+    match block.I.terminator with
+    | I.Br (cond, _, _) ->
+      add_use block.I.label cond
+    | I.Ret (Some v) ->
+      add_use block.I.label v
+    | I.Switch (value, _, _) ->
+      add_use block.I.label value
     | _ -> ()
-  ) func.blocks;
+  ) func.I.blocks;
   
   !uses
 
@@ -174,7 +174,7 @@ let check_dominance (dom_info: Dominance.dominance_info) (def_block: string) (us
   def_block = use_block || Dominance.dominates dom_info def_block use_block
 
 (* Verify single assignment property *)
-let verify_single_assignment (func: func) : ssa_error list =
+let verify_single_assignment (func: I.func) : ssa_error list =
   try
     let _ = collect_definitions func in
     []
@@ -182,7 +182,7 @@ let verify_single_assignment (func: func) : ssa_error list =
     [e]
 
 (* Verify all uses are dominated by definitions *)
-let verify_dominance (func: func) (dom_info: Dominance.dominance_info) : ssa_error list =
+let verify_dominance (func: I.func) (dom_info: Dominance.dominance_info) : ssa_error list =
   let errors = ref [] in
   let defs = collect_definitions func in
   let uses = collect_uses func in
@@ -200,49 +200,49 @@ let verify_dominance (func: func) (dom_info: Dominance.dominance_info) : ssa_err
   !errors
 
 (* Verify block parameters match arguments from predecessors *)
-let verify_block_parameters (func: func) : ssa_error list =
+let rec verify_block_parameters (func: I.func) : ssa_error list =
   let errors = ref [] in
   
-  List.iter (fun block ->
-    if block.params <> [] then
-      let preds = Dominance.get_predecessors func block.label in
+  List.iter (fun (block : I.basic_block) ->
+    if block.I.params <> [] then
+      let preds = Dominance.get_predecessors func block.I.label in
       
       (* Each predecessor should provide arguments *)
       List.iter (fun pred_name ->
-        let pred_block = List.find (fun b -> b.label = pred_name) func.blocks in
+        let pred_block = List.find (fun b -> b.I.label = pred_name) func.I.blocks in
         
         (* Check terminator provides correct arguments *)
-        let target_args = get_terminator_args pred_block.terminator block.label in
-        if List.length target_args <> List.length block.params then
-          errors := PhiOperandMismatch (block.label, pred_name, 
-                                       List.length block.params,
+        let target_args = get_terminator_args pred_block.I.terminator block.I.label in
+        if List.length target_args <> List.length block.I.params then
+          errors := PhiOperandMismatch (block.I.label, pred_name, 
+                                       List.length block.I.params,
                                        List.length target_args) :: !errors
       ) preds
-  ) func.blocks;
+  ) func.I.blocks;
   
   !errors
 
-and get_terminator_args (term: Instructions.terminator) (target: string) : Values.value list =
+and get_terminator_args (_term: I.terminator) (_target: string) : Values.value list =
   (* In current PIR, terminators don't carry arguments - this would need extension *)
   []
 
 (* Compute SSA statistics *)
-let compute_stats (func: func) : ssa_stats =
-  let num_blocks = List.length func.blocks in
+let compute_stats (func: I.func) : ssa_stats =
+  let num_blocks = List.length func.I.blocks in
   
   let num_definitions = ref 0 in
   let num_uses = ref 0 in
   let num_block_params = ref 0 in
   
   (* Count definitions *)
-  List.iter (fun block ->
-    num_block_params := !num_block_params + List.length block.params;
+  List.iter (fun (block : I.basic_block) ->
+    num_block_params := !num_block_params + List.length block.I.params;
     List.iter (fun inst ->
-      match inst.result with
+      match inst.I.result with
       | Some _ -> incr num_definitions
       | None -> ()
-    ) block.instructions
-  ) func.blocks;
+    ) block.I.instructions
+  ) func.I.blocks;
   
   (* Count uses *)
   let uses = collect_uses func in
@@ -257,7 +257,7 @@ let compute_stats (func: func) : ssa_stats =
   }
 
 (* Main verification entry point *)
-let verify_ssa (func: func) : verification_result =
+let verify_ssa (func: I.func) : verification_result =
   let dom_info = Dominance.compute_dominance_info func in
   
   let errors = ref [] in

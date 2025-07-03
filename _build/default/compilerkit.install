@@ -1,0 +1,110 @@
+lib: [
+  "_build/install/default/lib/compilerkit/META"
+  "_build/install/default/lib/compilerkit/backend/compilerkit_backend.cma" {"backend/compilerkit_backend.cma"}
+  "_build/install/default/lib/compilerkit/backend/compilerkit_backend.cmi" {"backend/compilerkit_backend.cmi"}
+  "_build/install/default/lib/compilerkit/backend/compilerkit_backend.cmt" {"backend/compilerkit_backend.cmt"}
+  "_build/install/default/lib/compilerkit/backend/compilerkit_backend.ml" {"backend/compilerkit_backend.ml"}
+  "_build/install/default/lib/compilerkit/backend/compilerkit_backend__.cmi" {"backend/compilerkit_backend__.cmi"}
+  "_build/install/default/lib/compilerkit/backend/compilerkit_backend__.cmt" {"backend/compilerkit_backend__.cmt"}
+  "_build/install/default/lib/compilerkit/backend/compilerkit_backend__.ml" {"backend/compilerkit_backend__.ml"}
+  "_build/install/default/lib/compilerkit/backend/compilerkit_backend__Dominance.cmi" {"backend/compilerkit_backend__Dominance.cmi"}
+  "_build/install/default/lib/compilerkit/backend/compilerkit_backend__Dominance.cmt" {"backend/compilerkit_backend__Dominance.cmt"}
+  "_build/install/default/lib/compilerkit/backend/compilerkit_backend__Ssa_block_params.cmi" {"backend/compilerkit_backend__Ssa_block_params.cmi"}
+  "_build/install/default/lib/compilerkit/backend/compilerkit_backend__Ssa_block_params.cmt" {"backend/compilerkit_backend__Ssa_block_params.cmt"}
+  "_build/install/default/lib/compilerkit/backend/compilerkit_backend__Ssa_verify.cmi" {"backend/compilerkit_backend__Ssa_verify.cmi"}
+  "_build/install/default/lib/compilerkit/backend/compilerkit_backend__Ssa_verify.cmt" {"backend/compilerkit_backend__Ssa_verify.cmt"}
+  "_build/install/default/lib/compilerkit/backend/dominance.ml" {"backend/dominance.ml"}
+  "_build/install/default/lib/compilerkit/backend/ssa_block_params.ml" {"backend/ssa_block_params.ml"}
+  "_build/install/default/lib/compilerkit/backend/ssa_verify.ml" {"backend/ssa_verify.ml"}
+  "_build/install/default/lib/compilerkit/common/compilerkit_common.cma" {"common/compilerkit_common.cma"}
+  "_build/install/default/lib/compilerkit/common/compilerkit_common.cmi" {"common/compilerkit_common.cmi"}
+  "_build/install/default/lib/compilerkit/common/compilerkit_common.cmt" {"common/compilerkit_common.cmt"}
+  "_build/install/default/lib/compilerkit/common/compilerkit_common.ml" {"common/compilerkit_common.ml"}
+  "_build/install/default/lib/compilerkit/compilerkit.cma"
+  "_build/install/default/lib/compilerkit/compilerkit.cmi"
+  "_build/install/default/lib/compilerkit/compilerkit.cmt"
+  "_build/install/default/lib/compilerkit/compilerkit.ml"
+  "_build/install/default/lib/compilerkit/dune-package"
+  "_build/install/default/lib/compilerkit/frontend/compilerkit_frontend.cma" {"frontend/compilerkit_frontend.cma"}
+  "_build/install/default/lib/compilerkit/frontend/compilerkit_frontend.cmi" {"frontend/compilerkit_frontend.cmi"}
+  "_build/install/default/lib/compilerkit/frontend/compilerkit_frontend.cmt" {"frontend/compilerkit_frontend.cmt"}
+  "_build/install/default/lib/compilerkit/frontend/compilerkit_frontend.ml" {"frontend/compilerkit_frontend.ml"}
+  "_build/install/default/lib/compilerkit/frontend/compilerkit_frontend__.cmi" {"frontend/compilerkit_frontend__.cmi"}
+  "_build/install/default/lib/compilerkit/frontend/compilerkit_frontend__.cmt" {"frontend/compilerkit_frontend__.cmt"}
+  "_build/install/default/lib/compilerkit/frontend/compilerkit_frontend__.ml" {"frontend/compilerkit_frontend__.ml"}
+  "_build/install/default/lib/compilerkit/frontend/compilerkit_frontend__Error_reporter.cmi" {"frontend/compilerkit_frontend__Error_reporter.cmi"}
+  "_build/install/default/lib/compilerkit/frontend/compilerkit_frontend__Error_reporter.cmt" {"frontend/compilerkit_frontend__Error_reporter.cmt"}
+  "_build/install/default/lib/compilerkit/frontend/compilerkit_frontend__Lexer_utils.cmi" {"frontend/compilerkit_frontend__Lexer_utils.cmi"}
+  "_build/install/default/lib/compilerkit/frontend/compilerkit_frontend__Lexer_utils.cmt" {"frontend/compilerkit_frontend__Lexer_utils.cmt"}
+  "_build/install/default/lib/compilerkit/frontend/compilerkit_frontend__Position.cmi" {"frontend/compilerkit_frontend__Position.cmi"}
+  "_build/install/default/lib/compilerkit/frontend/compilerkit_frontend__Position.cmt" {"frontend/compilerkit_frontend__Position.cmt"}
+  "_build/install/default/lib/compilerkit/frontend/compilerkit_frontend__Pratt.cmi" {"frontend/compilerkit_frontend__Pratt.cmi"}
+  "_build/install/default/lib/compilerkit/frontend/compilerkit_frontend__Pratt.cmt" {"frontend/compilerkit_frontend__Pratt.cmt"}
+  "_build/install/default/lib/compilerkit/frontend/compilerkit_frontend__Symbol_table.cmi" {"frontend/compilerkit_frontend__Symbol_table.cmi"}
+  "_build/install/default/lib/compilerkit/frontend/compilerkit_frontend__Symbol_table.cmt" {"frontend/compilerkit_frontend__Symbol_table.cmt"}
+  "_build/install/default/lib/compilerkit/frontend/compilerkit_frontend__Type_infer.cmi" {"frontend/compilerkit_frontend__Type_infer.cmi"}
+  "_build/install/default/lib/compilerkit/frontend/compilerkit_frontend__Type_infer.cmt" {"frontend/compilerkit_frontend__Type_infer.cmt"}
+  "_build/install/default/lib/compilerkit/frontend/compilerkit_frontend__Type_system.cmi" {"frontend/compilerkit_frontend__Type_system.cmi"}
+  "_build/install/default/lib/compilerkit/frontend/compilerkit_frontend__Type_system.cmt" {"frontend/compilerkit_frontend__Type_system.cmt"}
+  "_build/install/default/lib/compilerkit/frontend/compilerkit_frontend__Unify.cmi" {"frontend/compilerkit_frontend__Unify.cmi"}
+  "_build/install/default/lib/compilerkit/frontend/compilerkit_frontend__Unify.cmt" {"frontend/compilerkit_frontend__Unify.cmt"}
+  "_build/install/default/lib/compilerkit/frontend/error_reporter.ml" {"frontend/error_reporter.ml"}
+  "_build/install/default/lib/compilerkit/frontend/lexer_utils.ml" {"frontend/lexer_utils.ml"}
+  "_build/install/default/lib/compilerkit/frontend/position.ml" {"frontend/position.ml"}
+  "_build/install/default/lib/compilerkit/frontend/pratt.ml" {"frontend/pratt.ml"}
+  "_build/install/default/lib/compilerkit/frontend/symbol_table.ml" {"frontend/symbol_table.ml"}
+  "_build/install/default/lib/compilerkit/frontend/type_infer.ml" {"frontend/type_infer.ml"}
+  "_build/install/default/lib/compilerkit/frontend/type_system.ml" {"frontend/type_system.ml"}
+  "_build/install/default/lib/compilerkit/frontend/unify.ml" {"frontend/unify.ml"}
+  "_build/install/default/lib/compilerkit/pir/attributes.ml" {"pir/attributes.ml"}
+  "_build/install/default/lib/compilerkit/pir/builder.ml" {"pir/builder.ml"}
+  "_build/install/default/lib/compilerkit/pir/compilerkit_pir.cma" {"pir/compilerkit_pir.cma"}
+  "_build/install/default/lib/compilerkit/pir/compilerkit_pir.cmi" {"pir/compilerkit_pir.cmi"}
+  "_build/install/default/lib/compilerkit/pir/compilerkit_pir.cmt" {"pir/compilerkit_pir.cmt"}
+  "_build/install/default/lib/compilerkit/pir/compilerkit_pir.ml" {"pir/compilerkit_pir.ml"}
+  "_build/install/default/lib/compilerkit/pir/compilerkit_pir__.cmi" {"pir/compilerkit_pir__.cmi"}
+  "_build/install/default/lib/compilerkit/pir/compilerkit_pir__.cmt" {"pir/compilerkit_pir__.cmt"}
+  "_build/install/default/lib/compilerkit/pir/compilerkit_pir__.ml" {"pir/compilerkit_pir__.ml"}
+  "_build/install/default/lib/compilerkit/pir/compilerkit_pir__Attributes.cmi" {"pir/compilerkit_pir__Attributes.cmi"}
+  "_build/install/default/lib/compilerkit/pir/compilerkit_pir__Attributes.cmt" {"pir/compilerkit_pir__Attributes.cmt"}
+  "_build/install/default/lib/compilerkit/pir/compilerkit_pir__Builder.cmi" {"pir/compilerkit_pir__Builder.cmi"}
+  "_build/install/default/lib/compilerkit/pir/compilerkit_pir__Builder.cmt" {"pir/compilerkit_pir__Builder.cmt"}
+  "_build/install/default/lib/compilerkit/pir/compilerkit_pir__Instructions.cmi" {"pir/compilerkit_pir__Instructions.cmi"}
+  "_build/install/default/lib/compilerkit/pir/compilerkit_pir__Instructions.cmt" {"pir/compilerkit_pir__Instructions.cmt"}
+  "_build/install/default/lib/compilerkit/pir/compilerkit_pir__Lexer.cmi" {"pir/compilerkit_pir__Lexer.cmi"}
+  "_build/install/default/lib/compilerkit/pir/compilerkit_pir__Lexer.cmt" {"pir/compilerkit_pir__Lexer.cmt"}
+  "_build/install/default/lib/compilerkit/pir/compilerkit_pir__Linter.cmi" {"pir/compilerkit_pir__Linter.cmi"}
+  "_build/install/default/lib/compilerkit/pir/compilerkit_pir__Linter.cmt" {"pir/compilerkit_pir__Linter.cmt"}
+  "_build/install/default/lib/compilerkit/pir/compilerkit_pir__Module_ir.cmi" {"pir/compilerkit_pir__Module_ir.cmi"}
+  "_build/install/default/lib/compilerkit/pir/compilerkit_pir__Module_ir.cmt" {"pir/compilerkit_pir__Module_ir.cmt"}
+  "_build/install/default/lib/compilerkit/pir/compilerkit_pir__Parser.cmi" {"pir/compilerkit_pir__Parser.cmi"}
+  "_build/install/default/lib/compilerkit/pir/compilerkit_pir__Parser.cmt" {"pir/compilerkit_pir__Parser.cmt"}
+  "_build/install/default/lib/compilerkit/pir/compilerkit_pir__Pretty_printer.cmi" {"pir/compilerkit_pir__Pretty_printer.cmi"}
+  "_build/install/default/lib/compilerkit/pir/compilerkit_pir__Pretty_printer.cmt" {"pir/compilerkit_pir__Pretty_printer.cmt"}
+  "_build/install/default/lib/compilerkit/pir/compilerkit_pir__Types.cmi" {"pir/compilerkit_pir__Types.cmi"}
+  "_build/install/default/lib/compilerkit/pir/compilerkit_pir__Types.cmt" {"pir/compilerkit_pir__Types.cmt"}
+  "_build/install/default/lib/compilerkit/pir/compilerkit_pir__Values.cmi" {"pir/compilerkit_pir__Values.cmi"}
+  "_build/install/default/lib/compilerkit/pir/compilerkit_pir__Values.cmt" {"pir/compilerkit_pir__Values.cmt"}
+  "_build/install/default/lib/compilerkit/pir/instructions.ml" {"pir/instructions.ml"}
+  "_build/install/default/lib/compilerkit/pir/lexer.ml" {"pir/lexer.ml"}
+  "_build/install/default/lib/compilerkit/pir/linter.ml" {"pir/linter.ml"}
+  "_build/install/default/lib/compilerkit/pir/module_ir.ml" {"pir/module_ir.ml"}
+  "_build/install/default/lib/compilerkit/pir/parser.ml" {"pir/parser.ml"}
+  "_build/install/default/lib/compilerkit/pir/pretty_printer.ml" {"pir/pretty_printer.ml"}
+  "_build/install/default/lib/compilerkit/pir/types.ml" {"pir/types.ml"}
+  "_build/install/default/lib/compilerkit/pir/values.ml" {"pir/values.ml"}
+  "_build/install/default/lib/compilerkit/target/compilerkit_target.cma" {"target/compilerkit_target.cma"}
+  "_build/install/default/lib/compilerkit/target/compilerkit_target.cmi" {"target/compilerkit_target.cmi"}
+  "_build/install/default/lib/compilerkit/target/compilerkit_target.cmt" {"target/compilerkit_target.cmt"}
+  "_build/install/default/lib/compilerkit/target/compilerkit_target.ml" {"target/compilerkit_target.ml"}
+]
+bin: [
+  "_build/install/default/bin/fibonacci"
+  "_build/install/default/bin/memory_ops"
+  "_build/install/default/bin/pir-objdump"
+  "_build/install/default/bin/pirc"
+  "_build/install/default/bin/vector_ops"
+]
+doc: [
+  "_build/install/default/doc/compilerkit/README.md"
+]

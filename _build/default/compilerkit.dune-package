@@ -15,13 +15,10 @@
    backend/compilerkit_backend__Dominance.cmt
    backend/compilerkit_backend__Ssa_block_params.cmi
    backend/compilerkit_backend__Ssa_block_params.cmt
-   backend/compilerkit_backend__Ssa_transform.cmi
-   backend/compilerkit_backend__Ssa_transform.cmt
    backend/compilerkit_backend__Ssa_verify.cmi
    backend/compilerkit_backend__Ssa_verify.cmt
    backend/dominance.ml
    backend/ssa_block_params.ml
-   backend/ssa_transform.ml
    backend/ssa_verify.ml
    common/compilerkit_common.cma
    common/compilerkit_common.cmi
@@ -159,10 +156,6 @@
       (source
        (path Ssa_block_params)
        (impl (path backend/ssa_block_params.ml))))
-     (module
-      (obj_name compilerkit_backend__Ssa_transform)
-      (visibility public)
-      (source (path Ssa_transform) (impl (path backend/ssa_transform.ml))))
      (module
       (obj_name compilerkit_backend__Ssa_verify)
       (visibility public)

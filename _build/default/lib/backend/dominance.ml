@@ -1,6 +1,7 @@
 (* Dominance Analysis for SSA Construction *)
 
 open Compilerkit_pir
+module I = Instructions
 
 module BlockSet = Set.Make(String)
 module BlockMap = Map.Make(String)
@@ -12,43 +13,43 @@ type dominance_info = {
 }
 
 (* Get predecessors of a block *)
-let get_predecessors (func: Instructions.func) (block_name: string) : string list =
+let get_predecessors (func: I.func) (block_name: string) : string list =
   let preds = ref [] in
-  List.iter (fun block ->
-    match block.Instructions.terminator with
-    | Instructions.Jmp target when target = block_name ->
-      preds := block.Instructions.label :: !preds
-    | Instructions.Br (_, true_target, false_target) ->
+  List.iter (fun (block : I.basic_block) ->
+    match block.I.terminator with
+    | I.Jmp target when target = block_name ->
+      preds := block.I.label :: !preds
+    | I.Br (_, true_target, false_target) ->
       if true_target = block_name || false_target = block_name then
-        preds := block.Instructions.label :: !preds
-    | Instructions.Switch (_, default, cases) ->
+        preds := block.I.label :: !preds
+    | I.Switch (_, default, cases) ->
       let targets = default :: List.map snd cases in
       if List.mem block_name targets then
-        preds := block.Instructions.label :: !preds
+        preds := block.I.label :: !preds
     | _ -> ()
-  ) func.blocks;
+  ) func.I.blocks;
   !preds
 
 (* Get successors of a block *)
-let get_successors (block: Instructions.basic_block) : string list =
-  match block.terminator with
-  | Instructions.Jmp target -> [target]
-  | Instructions.Br (_, true_target, false_target) -> [true_target; false_target]
-  | Instructions.Switch (_, default, cases) ->
+let get_successors (block: I.basic_block) : string list =
+  match block.I.terminator with
+  | I.Jmp target -> [target]
+  | I.Br (_, true_target, false_target) -> [true_target; false_target]
+  | I.Switch (_, default, cases) ->
     default :: List.map snd cases
-  | Instructions.Ret _ -> []
-  | Instructions.Unreachable -> []
+  | I.Ret _ -> []
+  | I.Unreachable -> []
 
 (* Find the entry block of a function *)
-let get_entry_block (func: Instructions.func) : string =
-  match func.blocks with
+let get_entry_block (func: I.func) : string =
+  match func.I.blocks with
   | [] -> failwith "Function has no blocks"
-  | first_block :: _ -> first_block.Instructions.label
+  | first_block :: _ -> first_block.I.label
 
 (* Compute immediate dominators using the Cooper-Harvey-Kennedy algorithm *)
-let compute_immediate_dominators (func: Instructions.func) : string BlockMap.t =
+let compute_immediate_dominators (func: I.func) : string BlockMap.t =
   let entry = get_entry_block func in
-  let blocks = List.map (fun b -> b.Instructions.label) func.blocks in
+  let blocks = List.map (fun b -> b.I.label) func.I.blocks in
   
   (* Initialize: entry dominates itself, others undefined *)
   let idom = ref BlockMap.empty in
@@ -56,10 +57,10 @@ let compute_immediate_dominators (func: Instructions.func) : string BlockMap.t =
   
   (* Build predecessor map *)
   let predecessors = ref BlockMap.empty in
-  List.iter (fun block ->
-    let preds = get_predecessors func block.Instructions.label in
-    predecessors := BlockMap.add block.Instructions.label preds !predecessors
-  ) func.blocks;
+  List.iter (fun (block : I.basic_block) ->
+    let preds = get_predecessors func block.I.label in
+    predecessors := BlockMap.add block.I.label preds !predecessors
+  ) func.I.blocks;
   
   (* Find common dominator *)
   let rec intersect b1 b2 =
@@ -111,37 +112,37 @@ let build_dominator_tree (idom: string BlockMap.t) : string list BlockMap.t =
   !children
 
 (* Compute dominance frontiers *)
-let compute_dominance_frontiers (func: Instructions.func) (idom: string BlockMap.t) : BlockSet.t BlockMap.t =
+let compute_dominance_frontiers (func: I.func) (idom: string BlockMap.t) : BlockSet.t BlockMap.t =
   let df = ref BlockMap.empty in
   
   (* Initialize empty frontiers *)
-  List.iter (fun block ->
-    df := BlockMap.add block.Instructions.label BlockSet.empty !df
-  ) func.blocks;
+  List.iter (fun (block : I.basic_block) ->
+    df := BlockMap.add block.I.label BlockSet.empty !df
+  ) func.I.blocks;
   
   (* For each block *)
-  List.iter (fun block ->
-    let preds = get_predecessors func block.Instructions.label in
+  List.iter (fun (block : I.basic_block) ->
+    let preds = get_predecessors func block.I.label in
     if List.length preds >= 2 then
       (* Join point - check dominance *)
       List.iter (fun pred ->
         let runner = ref pred in
-        while !runner <> BlockMap.find block.Instructions.label idom do
+        while !runner <> BlockMap.find block.I.label idom do
           let existing = 
             match BlockMap.find_opt !runner !df with
             | Some s -> s
             | None -> BlockSet.empty
           in
-          df := BlockMap.add !runner (BlockSet.add block.Instructions.label existing) !df;
+          df := BlockMap.add !runner (BlockSet.add block.I.label existing) !df;
           runner := BlockMap.find !runner idom
         done
       ) preds
-  ) func.blocks;
+  ) func.I.blocks;
   
   !df
 
 (* Main entry point: compute all dominance information *)
-let compute_dominance_info (func: Instructions.func) : dominance_info =
+let compute_dominance_info (func: I.func) : dominance_info =
   let idom = compute_immediate_dominators func in
   let children = build_dominator_tree idom in
   let df = compute_dominance_frontiers func idom in

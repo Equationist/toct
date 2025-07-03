@@ -2,7 +2,6 @@
 
 (* SSA Transformation *)
 module Dominance = Dominance
-module Ssa_transform = Ssa_transform
 module Ssa_block_params = Ssa_block_params
 module Ssa_verify = Ssa_verify
 

@@ -1,7 +1,7 @@
 (* SSA Transformation using Block Parameters (PIR style) *)
 
 open Compilerkit_pir
-open Instructions
+module I = Instructions
 
 module VarMap = Map.Make(String)
 module BlockMap = Map.Make(String)
@@ -17,7 +17,7 @@ type rename_state = {
 }
 
 (* Generate a fresh SSA value *)
-let fresh_value (state: rename_state) (ty: Types.ty) : Values.value =
+let fresh_value (_state: rename_state) (ty: Types.ty) : Values.value =
   Values.create_simple_value ty
 
 (* Get or create renamed value *)
@@ -32,77 +32,78 @@ let get_renamed_value (state: rename_state) (value: Values.value) : Values.value
     new_value
 
 (* Rename instruction *)
-let rename_instruction (state: rename_state) (inst: Instructions.instruction) : Instructions.instruction =
+let rename_instruction (state: rename_state) (inst: I.instruction) : I.instruction =
   let rename_value v = get_renamed_value state v in
   
-  let new_instr = match inst.instr with
-    | Instructions.Binop (op, flag, v1, v2) ->
-      Instructions.Binop (op, flag, rename_value v1, rename_value v2)
+  let new_instr = match inst.I.instr with
+    | I.Binop (op, flag, v1, v2) ->
+      I.Binop (op, flag, rename_value v1, rename_value v2)
     
-    | Instructions.Icmp (pred, v1, v2) ->
-      Instructions.Icmp (pred, rename_value v1, rename_value v2)
+    | I.Icmp (pred, v1, v2) ->
+      I.Icmp (pred, rename_value v1, rename_value v2)
     
-    | Instructions.Fcmp (pred, v1, v2) ->
-      Instructions.Fcmp (pred, rename_value v1, rename_value v2)
+    | I.Fcmp (pred, v1, v2) ->
+      I.Fcmp (pred, rename_value v1, rename_value v2)
     
-    | Instructions.Select (cond, v_true, v_false) ->
-      Instructions.Select (rename_value cond, rename_value v_true, rename_value v_false)
+    | I.Select (cond, v_true, v_false) ->
+      I.Select (rename_value cond, rename_value v_true, rename_value v_false)
     
-    | Instructions.Memory memop ->
+    | I.Memory memop ->
       let new_memop = match memop with
-        | Instructions.Load ty -> Instructions.Load ty
-        | Instructions.Store (value, ptr) ->
-          Instructions.Store (rename_value value, rename_value ptr)
-        | Instructions.Alloca (size, align) ->
-          Instructions.Alloca (rename_value size, align)
-        | Instructions.Memcpy (dst, src, bytes) ->
-          Instructions.Memcpy (rename_value dst, rename_value src, rename_value bytes)
-        | Instructions.Memset (dst, byte, bytes) ->
-          Instructions.Memset (rename_value dst, rename_value byte, rename_value bytes)
+        | I.Load ty -> I.Load ty
+        | I.Store (value, ptr) ->
+          I.Store (rename_value value, rename_value ptr)
+        | I.Alloca (size, align) ->
+          I.Alloca (rename_value size, align)
+        | I.Memcpy (dst, src, bytes) ->
+          I.Memcpy (rename_value dst, rename_value src, rename_value bytes)
+        | I.Memset (dst, byte, bytes) ->
+          I.Memset (rename_value dst, rename_value byte, rename_value bytes)
       in
-      Instructions.Memory new_memop
+      I.Memory new_memop
     
-    | Instructions.Address addrop ->
+    | I.Address addrop ->
       let new_addrop = match addrop with
-        | Instructions.Gep (base, idx) ->
-          Instructions.Gep (rename_value base, rename_value idx)
-        | Instructions.FieldAddr (base, field) ->
-          Instructions.FieldAddr (rename_value base, field)
-        | Instructions.PtrAdd (base, offset) ->
-          Instructions.PtrAdd (rename_value base, rename_value offset)
+        | I.Gep (base, idx) ->
+          I.Gep (rename_value base, rename_value idx)
+        | I.FieldAddr (base, field) ->
+          I.FieldAddr (rename_value base, field)
+        | I.PtrAdd (base, offset) ->
+          I.PtrAdd (rename_value base, rename_value offset)
       in
-      Instructions.Address new_addrop
+      I.Address new_addrop
     
-    | Instructions.Cast castop ->
+    | I.Cast castop ->
       let new_castop = match castop with
-        | Instructions.Bitcast v -> Instructions.Bitcast (rename_value v)
-        | Instructions.Trunc (v, ty) -> Instructions.Trunc (rename_value v, ty)
-        | Instructions.Zext (v, ty) -> Instructions.Zext (rename_value v, ty)
-        | Instructions.Sext (v, ty) -> Instructions.Sext (rename_value v, ty)
-        | Instructions.Fptrunc (v, ty) -> Instructions.Fptrunc (rename_value v, ty)
-        | Instructions.Fpext (v, ty) -> Instructions.Fpext (rename_value v, ty)
-        | Instructions.Fptoui (v, ty) -> Instructions.Fptoui (rename_value v, ty)
-        | Instructions.Fptosi (v, ty) -> Instructions.Fptosi (rename_value v, ty)
-        | Instructions.Uitofp (v, ty) -> Instructions.Uitofp (rename_value v, ty)
-        | Instructions.Sitofp (v, ty) -> Instructions.Sitofp (rename_value v, ty)
+        | I.Bitcast v -> I.Bitcast (rename_value v)
+        | I.Trunc (v, ty) -> I.Trunc (rename_value v, ty)
+        | I.Zext (v, ty) -> I.Zext (rename_value v, ty)
+        | I.Sext (v, ty) -> I.Sext (rename_value v, ty)
+        | I.Fptrunc (v, ty) -> I.Fptrunc (rename_value v, ty)
+        | I.Fpext (v, ty) -> I.Fpext (rename_value v, ty)
+        | I.Fptoui (v, ty) -> I.Fptoui (rename_value v, ty)
+        | I.Fptosi (v, ty) -> I.Fptosi (rename_value v, ty)
+        | I.Uitofp (v, ty) -> I.Uitofp (rename_value v, ty)
+        | I.Sitofp (v, ty) -> I.Sitofp (rename_value v, ty)
       in
-      Instructions.Cast new_castop
+      I.Cast new_castop
     
-    | Instructions.Vector vecop ->
+    | I.Vector vecop ->
       let new_vecop = match vecop with
-        | Instructions.Splat (v, lanes) ->
-          Instructions.Splat (rename_value v, lanes)
-        | Instructions.Shuffle (v1, v2, mask) ->
-          Instructions.Shuffle (rename_value v1, rename_value v2, mask)
-        | Instructions.ExtractLane (v, idx) ->
-          Instructions.ExtractLane (rename_value v, idx)
-        | Instructions.InsertLane (v, idx, scalar) ->
-          Instructions.InsertLane (rename_value v, idx, rename_value scalar)
+        | I.Splat (v, lanes) ->
+          I.Splat (rename_value v, lanes)
+        | I.Shuffle (v1, v2, mask) ->
+          I.Shuffle (rename_value v1, rename_value v2, mask)
+        | I.ExtractLane (v, idx) ->
+          I.ExtractLane (rename_value v, idx)
+        | I.InsertLane (v, idx, scalar) ->
+          I.InsertLane (rename_value v, idx, rename_value scalar)
       in
-      Instructions.Vector new_vecop
+      I.Vector new_vecop
     
-    | Instructions.Call callop ->
-      let new_callop = match callop with
+    | I.Call callop ->
+      let open I in
+      let new_callop : callop = match callop with
         | Call (callee, args) ->
           let new_callee = rename_value callee in
           let new_args = List.map rename_value args in
@@ -112,16 +113,16 @@ let rename_instruction (state: rename_state) (inst: Instructions.instruction) : 
           let new_args = List.map rename_value args in
           TailCall (new_callee, new_args)
       in
-      Instructions.Call new_callop
+      I.Call new_callop
     
-    | Instructions.Phi operands ->
-      Instructions.Phi (List.map (fun (v, label) -> (rename_value v, label)) operands)
+    | I.Phi operands ->
+      I.Phi (List.map (fun (v, label) -> (rename_value v, label)) operands)
     
-    | Instructions.Const _ as c -> c
+    | I.Const _ as c -> c
   in
   
   (* Create new result if needed *)
-  let new_result = match inst.result with
+  let new_result = match inst.I.result with
     | Some old_result ->
       let new_result = fresh_value state (Values.get_type old_result) in
       state.value_map <- ValueMap.add (Values.get_id old_result) new_result state.value_map;
@@ -132,47 +133,47 @@ let rename_instruction (state: rename_state) (inst: Instructions.instruction) : 
   { inst with instr = new_instr; result = new_result }
 
 (* Rename terminator *)
-let rename_terminator (state: rename_state) (term: Instructions.terminator) : Instructions.terminator =
+let rename_terminator (state: rename_state) (term: I.terminator) : I.terminator =
   let rename_value v = get_renamed_value state v in
   
   match term with
-  | Instructions.Ret (Some v) -> Instructions.Ret (Some (rename_value v))
-  | Instructions.Br (cond, then_lbl, else_lbl) ->
-    Instructions.Br (rename_value cond, then_lbl, else_lbl)
-  | Instructions.Switch (value, default, cases) ->
-    Instructions.Switch (rename_value value, default, cases)
+  | I.Ret (Some v) -> I.Ret (Some (rename_value v))
+  | I.Br (cond, then_lbl, else_lbl) ->
+    I.Br (rename_value cond, then_lbl, else_lbl)
+  | I.Switch (value, default, cases) ->
+    I.Switch (rename_value value, default, cases)
   | _ -> term
 
 (* Identify join points that need block parameters *)
-let find_join_points (func: func) : BlockMap.key list =
+let find_join_points (func: I.func) : BlockMap.key list =
   let join_points = ref [] in
   
-  List.iter (fun block ->
-    let preds = Dominance.get_predecessors func block.label in
+  List.iter (fun (block : I.basic_block) ->
+    let preds = Dominance.get_predecessors func block.I.label in
     if List.length preds > 1 then
-      join_points := block.label :: !join_points
-  ) func.blocks;
+      join_points := block.I.label :: !join_points
+  ) func.I.blocks;
   
   !join_points
 
 (* Determine which values need block parameters at join points *)
-let compute_block_parameters (func: func) (join_points: string list) : (string * Types.ty) list BlockMap.t =
+let compute_block_parameters (func: I.func) (join_points: string list) : (string * Types.ty) list BlockMap.t =
   let block_params = ref BlockMap.empty in
   
   (* For simplicity, we'll add parameters for values used in the block *)
   (* In a real implementation, we'd do a more sophisticated analysis *)
   List.iter (fun block_label ->
-    let block = List.find (fun b -> b.label = block_label) func.blocks in
+    let block = List.find (fun b -> b.I.label = block_label) func.I.blocks in
     let params = ref [] in
     
     (* Collect values used in this block *)
     List.iter (fun inst ->
-      match inst.instr with
-      | Instructions.Binop (_, _, v1, v2) ->
+      match inst.I.instr with
+      | I.Binop (_, _, _v1, _v2) ->
         (* In real SSA, we'd check if these are defined in different predecessors *)
         ()
       | _ -> ()
-    ) block.instructions;
+    ) block.I.instructions;
     
     if !params <> [] then
       block_params := BlockMap.add block_label !params !block_params
@@ -181,7 +182,7 @@ let compute_block_parameters (func: func) (join_points: string list) : (string *
   !block_params
 
 (* Transform function to SSA form *)
-let transform_to_ssa (func: func) : func =
+let transform_to_ssa (func: I.func) : I.func =
   (* Compute dominance information *)
   let dom_info = Dominance.compute_dominance_info func in
   
@@ -201,39 +202,39 @@ let transform_to_ssa (func: func) : func =
   } in
   
   (* Rename all blocks *)
-  let new_blocks = List.map (fun block ->
+  let new_blocks = List.map (fun (block : I.basic_block) ->
     (* Get block parameters *)
     let params = 
-      match BlockMap.find_opt block.label block_params with
+      match BlockMap.find_opt block.I.label block_params with
       | Some ps -> ps
       | None -> []
     in
     
     (* Rename instructions *)
-    let new_instructions = List.map (rename_instruction state) block.instructions in
+    let new_instructions = List.map (rename_instruction state) block.I.instructions in
     
     (* Rename terminator *)
-    let new_terminator = rename_terminator state block.terminator in
+    let new_terminator = rename_terminator state block.I.terminator in
     
     { block with 
       params = params;
       instructions = new_instructions;
       terminator = new_terminator }
-  ) func.blocks in
+  ) func.I.blocks in
   
   { func with blocks = new_blocks }
 
 (* Pretty print SSA transformation statistics *)
-let pp_ssa_stats (original: func) (transformed: func) : string =
+let pp_ssa_stats (original: I.func) (transformed: I.func) : string =
   let count_values func =
     let values = ref 0 in
-    List.iter (fun block ->
+    List.iter (fun (block : I.basic_block) ->
       List.iter (fun inst ->
-        match inst.result with
+        match inst.I.result with
         | Some _ -> incr values
         | None -> ()
-      ) block.instructions
-    ) func.blocks;
+      ) block.I.instructions
+    ) func.I.blocks;
     !values
   in
   
@@ -241,9 +242,9 @@ let pp_ssa_stats (original: func) (transformed: func) : string =
   let ssa_values = count_values transformed in
   
   let count_block_params func =
-    List.fold_left (fun acc block ->
-      acc + List.length block.params
-    ) 0 func.blocks
+    List.fold_left (fun acc (block : I.basic_block) ->
+      acc + List.length block.I.params
+    ) 0 func.I.blocks
   in
   
   let block_params = count_block_params transformed in
