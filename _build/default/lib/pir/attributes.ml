@@ -35,6 +35,9 @@ let get_default key default attrs =
 (* Check if attribute exists *)
 let has key attrs = Hashtbl.mem attrs key
 
+(* Check if attribute bag is empty *)
+let is_empty attrs = Hashtbl.length attrs = 0
+
 (* Remove an attribute *)
 let remove key attrs =
   let new_attrs = Hashtbl.copy attrs in

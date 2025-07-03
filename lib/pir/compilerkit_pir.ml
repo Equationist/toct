@@ -5,6 +5,8 @@ module Types = Types
 module Attributes = Attributes  
 module Values = Values
 module Instructions = Instructions
+module Builder = Builder
+module Pretty_printer = Pretty_printer
 
 (* Re-export commonly used types *)
 type ty = Types.ty

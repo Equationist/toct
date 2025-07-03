@@ -1,1 +1,1 @@
-test/test_runner_simple.ml: Attributes Compilerkit_pir Hashtbl Instructions Types Values
+test/test_runner_simple.ml: Attributes Builder Compilerkit_pir Hashtbl Instructions Pretty_printer String Types Values

@@ -1,4 +1,6 @@
 compilerkit_pir__Attributes
+compilerkit_pir__Builder
 compilerkit_pir__Instructions
+compilerkit_pir__Pretty_printer
 compilerkit_pir__Types
 compilerkit_pir__Values

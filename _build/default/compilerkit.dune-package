@@ -1,89 +1,64 @@
 (lang dune 3.19)
 (name compilerkit)
-(sections (lib .) (libexec .) (bin ../../bin) (doc ../../doc/compilerkit))
+(sections (lib .) (bin ../../bin) (doc ../../doc/compilerkit))
 (files
  (lib
   (META
-   backend/compilerkit_backend.a
    backend/compilerkit_backend.cma
    backend/compilerkit_backend.cmi
    backend/compilerkit_backend.cmt
-   backend/compilerkit_backend.cmx
-   backend/compilerkit_backend.cmxa
    backend/compilerkit_backend.ml
-   common/compilerkit_common.a
    common/compilerkit_common.cma
    common/compilerkit_common.cmi
    common/compilerkit_common.cmt
-   common/compilerkit_common.cmx
-   common/compilerkit_common.cmxa
    common/compilerkit_common.ml
-   compilerkit.a
    compilerkit.cma
    compilerkit.cmi
    compilerkit.cmt
-   compilerkit.cmx
-   compilerkit.cmxa
    compilerkit.ml
    dune-package
-   frontend/compilerkit_frontend.a
    frontend/compilerkit_frontend.cma
    frontend/compilerkit_frontend.cmi
    frontend/compilerkit_frontend.cmt
-   frontend/compilerkit_frontend.cmx
-   frontend/compilerkit_frontend.cmxa
    frontend/compilerkit_frontend.ml
    pir/attributes.ml
-   pir/compilerkit_pir.a
+   pir/builder.ml
    pir/compilerkit_pir.cma
    pir/compilerkit_pir.cmi
    pir/compilerkit_pir.cmt
-   pir/compilerkit_pir.cmx
-   pir/compilerkit_pir.cmxa
    pir/compilerkit_pir.ml
    pir/compilerkit_pir__.cmi
    pir/compilerkit_pir__.cmt
-   pir/compilerkit_pir__.cmx
    pir/compilerkit_pir__.ml
    pir/compilerkit_pir__Attributes.cmi
    pir/compilerkit_pir__Attributes.cmt
-   pir/compilerkit_pir__Attributes.cmx
+   pir/compilerkit_pir__Builder.cmi
+   pir/compilerkit_pir__Builder.cmt
    pir/compilerkit_pir__Instructions.cmi
    pir/compilerkit_pir__Instructions.cmt
-   pir/compilerkit_pir__Instructions.cmx
+   pir/compilerkit_pir__Pretty_printer.cmi
+   pir/compilerkit_pir__Pretty_printer.cmt
    pir/compilerkit_pir__Types.cmi
    pir/compilerkit_pir__Types.cmt
-   pir/compilerkit_pir__Types.cmx
    pir/compilerkit_pir__Values.cmi
    pir/compilerkit_pir__Values.cmt
-   pir/compilerkit_pir__Values.cmx
    pir/instructions.ml
+   pir/pretty_printer.ml
    pir/types.ml
    pir/values.ml
-   target/compilerkit_target.a
    target/compilerkit_target.cma
    target/compilerkit_target.cmi
    target/compilerkit_target.cmt
-   target/compilerkit_target.cmx
-   target/compilerkit_target.cmxa
    target/compilerkit_target.ml))
- (libexec
-  (backend/compilerkit_backend.cmxs
-   common/compilerkit_common.cmxs
-   compilerkit.cmxs
-   frontend/compilerkit_frontend.cmxs
-   pir/compilerkit_pir.cmxs
-   target/compilerkit_target.cmxs))
  (bin (pir-objdump pirc))
- (doc (README)))
+ (doc (README.md)))
 (library
  (name compilerkit)
  (kind normal)
- (archives (byte compilerkit.cma) (native compilerkit.cmxa))
- (plugins (byte compilerkit.cma) (native compilerkit.cmxs))
- (native_archives compilerkit.a)
+ (archives (byte compilerkit.cma))
+ (plugins (byte compilerkit.cma))
  (main_module_name Compilerkit)
- (modes byte native)
+ (modes byte)
  (modules
   (wrapped
    (group
@@ -97,16 +72,11 @@
 (library
  (name compilerkit.backend)
  (kind normal)
- (archives
-  (byte backend/compilerkit_backend.cma)
-  (native backend/compilerkit_backend.cmxa))
- (plugins
-  (byte backend/compilerkit_backend.cma)
-  (native backend/compilerkit_backend.cmxs))
- (native_archives backend/compilerkit_backend.a)
+ (archives (byte backend/compilerkit_backend.cma))
+ (plugins (byte backend/compilerkit_backend.cma))
  (requires compilerkit.common compilerkit.pir)
  (main_module_name Compilerkit_backend)
- (modes byte native)
+ (modes byte)
  (modules
   (singleton
    (obj_name compilerkit_backend)
@@ -117,15 +87,10 @@
 (library
  (name compilerkit.common)
  (kind normal)
- (archives
-  (byte common/compilerkit_common.cma)
-  (native common/compilerkit_common.cmxa))
- (plugins
-  (byte common/compilerkit_common.cma)
-  (native common/compilerkit_common.cmxs))
- (native_archives common/compilerkit_common.a)
+ (archives (byte common/compilerkit_common.cma))
+ (plugins (byte common/compilerkit_common.cma))
  (main_module_name Compilerkit_common)
- (modes byte native)
+ (modes byte)
  (modules
   (singleton
    (obj_name compilerkit_common)
@@ -136,16 +101,11 @@
 (library
  (name compilerkit.frontend)
  (kind normal)
- (archives
-  (byte frontend/compilerkit_frontend.cma)
-  (native frontend/compilerkit_frontend.cmxa))
- (plugins
-  (byte frontend/compilerkit_frontend.cma)
-  (native frontend/compilerkit_frontend.cmxs))
- (native_archives frontend/compilerkit_frontend.a)
+ (archives (byte frontend/compilerkit_frontend.cma))
+ (plugins (byte frontend/compilerkit_frontend.cma))
  (requires compilerkit.common compilerkit.pir)
  (main_module_name Compilerkit_frontend)
- (modes byte native)
+ (modes byte)
  (modules
   (singleton
    (obj_name compilerkit_frontend)
@@ -156,12 +116,11 @@
 (library
  (name compilerkit.pir)
  (kind normal)
- (archives (byte pir/compilerkit_pir.cma) (native pir/compilerkit_pir.cmxa))
- (plugins (byte pir/compilerkit_pir.cma) (native pir/compilerkit_pir.cmxs))
- (native_archives pir/compilerkit_pir.a)
+ (archives (byte pir/compilerkit_pir.cma))
+ (plugins (byte pir/compilerkit_pir.cma))
  (requires compilerkit.common)
  (main_module_name Compilerkit_pir)
- (modes byte native)
+ (modes byte)
  (modules
   (wrapped
    (group
@@ -179,6 +138,10 @@
       (visibility public)
       (source (path Attributes) (impl (path pir/attributes.ml))))
      (module
+      (obj_name compilerkit_pir__Builder)
+      (visibility public)
+      (source (path Builder) (impl (path pir/builder.ml))))
+     (module
       (obj_name compilerkit_pir)
       (visibility public)
       (source (path Compilerkit_pir) (impl (path pir/compilerkit_pir.ml))))
@@ -186,6 +149,10 @@
       (obj_name compilerkit_pir__Instructions)
       (visibility public)
       (source (path Instructions) (impl (path pir/instructions.ml))))
+     (module
+      (obj_name compilerkit_pir__Pretty_printer)
+      (visibility public)
+      (source (path Pretty_printer) (impl (path pir/pretty_printer.ml))))
      (module
       (obj_name compilerkit_pir__Types)
       (visibility public)
@@ -198,16 +165,11 @@
 (library
  (name compilerkit.target)
  (kind normal)
- (archives
-  (byte target/compilerkit_target.cma)
-  (native target/compilerkit_target.cmxa))
- (plugins
-  (byte target/compilerkit_target.cma)
-  (native target/compilerkit_target.cmxs))
- (native_archives target/compilerkit_target.a)
+ (archives (byte target/compilerkit_target.cma))
+ (plugins (byte target/compilerkit_target.cma))
  (requires compilerkit.common compilerkit.pir compilerkit.backend)
  (main_module_name Compilerkit_target)
- (modes byte native)
+ (modes byte)
  (modules
   (singleton
    (obj_name compilerkit_target)

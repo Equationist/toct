@@ -1,1 +1,1 @@
-lib/pir/compilerkit_pir.ml: Attributes Instructions Types Values
+lib/pir/compilerkit_pir.ml: Attributes Builder Instructions Pretty_printer Types Values

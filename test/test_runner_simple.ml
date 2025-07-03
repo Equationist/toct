@@ -105,6 +105,95 @@ let test_pir_instructions () =
   
   print_endline "✓ All PIR Instructions tests passed"
 
+(* Test PIR Builder *)
+let test_pir_builder () =
+  print_endline "Running PIR Builder tests...";
+  
+  (* Test 1: Basic function creation *)
+  let i32_ty = Types.Scalar Types.I32 in
+  
+  (* Simple function that returns a constant *)
+  let func1 = Instructions.create_func "test" [] (Some i32_ty) [] in
+  assert (func1.name = "test");
+  assert (func1.params = []);
+  assert (func1.return_ty = Some i32_ty);
+  
+  (* Test 2: Builder state initialization *)
+  let init_state = Builder.init_builder "entry" in
+  assert (init_state.current_block = "entry");
+  assert (init_state.blocks = []);
+  assert (init_state.next_var_id = 0);
+  
+  (* Test 3: Fresh variable names *)
+  let open Builder in
+  let (state1, name1) = fresh_var_name "tmp" init_state in
+  let (state2, name2) = fresh_var_name "tmp" state1 in
+  assert (name1 = "tmp0");
+  assert (name2 = "tmp1");
+  assert (state2.next_var_id = 2);
+  
+  (* Test 4: Value definition and lookup *)
+  let test_val = Values.create_simple_value i32_ty in
+  let (state3, _) = define_value "myval" test_val state2 in
+  let (_, found_val) = lookup_value "myval" state3 in
+  assert (Values.get_id test_val = Values.get_id found_val);
+  
+  (* Test 5: Block management *)
+  let (state4, _) = set_current_block "block1" init_state in
+  assert (state4.current_block = "block1");
+  
+  print_endline "✓ All PIR Builder tests passed"
+
+(* Test PIR Pretty Printer *)
+let test_pir_pretty_printer () =
+  print_endline "Running PIR Pretty Printer tests...";
+  
+  (* Test 1: Type pretty printing *)
+  let ctx = Pretty_printer.make_context ~config:{Pretty_printer.default_config with use_colors = false} () in
+  
+  assert (Pretty_printer.pp_type ctx (Types.Scalar Types.I32) = "i32");
+  assert (Pretty_printer.pp_type ctx (Types.Vector (4, Types.F32)) = "vec<4 x f32>");
+  assert (Pretty_printer.pp_type ctx Types.Ptr = "ptr");
+  assert (Pretty_printer.pp_type ctx (Types.Array (10, Types.Scalar Types.I8)) = "[10 x i8]");
+  
+  (* Test 2: Value pretty printing *)
+  let v1 = Values.create_simple_value (Types.Scalar Types.I32) in
+  let v_str = Pretty_printer.pp_value ctx v1 in
+  assert (String.contains v_str '%'); (* Values start with % *)
+  assert (String.contains v_str ':'); (* Type annotation *)
+  
+  (* Test 3: Instruction pretty printing *)
+  let v2 = Values.create_simple_value (Types.Scalar Types.I32) in
+  let v3 = Values.create_simple_value (Types.Scalar Types.I32) in
+  let add_instr = Instructions.Binop (Instructions.Add, Instructions.NoFlag, v2, v3) in
+  let instr_str = Pretty_printer.pp_instr ctx add_instr in
+  assert (String.contains instr_str 'a'); (* Contains 'add' *)
+  
+  (* Test 4: Terminator pretty printing *)
+  let ret_term = Instructions.Ret (Some v1) in
+  let term_str = Pretty_printer.pp_terminator ctx ret_term in
+  assert (String.starts_with ~prefix:"ret" term_str);
+  
+  (* Test 5: Basic block pretty printing *)
+  let block = Instructions.create_block "entry" [] [] (Instructions.Ret None) in
+  let block_str = Pretty_printer.pp_basic_block ctx block in
+  assert (String.contains block_str ':'); (* Contains label colon *)
+  assert (String.contains block_str 'r'); (* Contains 'ret' *)
+  
+  (* Test 6: Function pretty printing *)
+  let func = Instructions.create_func "main" [] (Some (Types.Scalar Types.I32)) [block] in
+  let func_str = Pretty_printer.pp_function ctx func in
+  assert (String.contains func_str 'f'); (* Contains 'func' *)
+  assert (String.contains func_str '>'); (* Contains '->' *)
+  
+  (* Test 7: Colors disabled *)
+  let no_color_config = { Pretty_printer.default_config with use_colors = false } in
+  let ctx_no_color = Pretty_printer.make_context ~config:no_color_config () in
+  let colored_str = Pretty_printer.pp_type ctx_no_color (Types.Scalar Types.I32) in
+  assert (not (String.contains colored_str '\027')); (* No escape codes *)
+  
+  print_endline "✓ All PIR Pretty Printer tests passed"
+
 let run_all_tests () =
   print_endline "\n=== TOCT Test Suite ===\n";
   
@@ -121,6 +210,12 @@ let run_all_tests () =
   print_endline "";
   
   test_pir_instructions ();
+  print_endline "";
+  
+  test_pir_builder ();
+  print_endline "";
+  
+  test_pir_pretty_printer ();
   print_endline "";
   
   print_endline "🎉 All TOCT tests passed! 🎉"
