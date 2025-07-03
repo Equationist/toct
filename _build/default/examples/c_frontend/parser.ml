@@ -81,6 +81,10 @@ let parse_decl state = !decl_ref state
 let parse_type_specs state = !type_spec_ref state
 let parse_declarator state = !declarator_ref state
 
+(** Forward declaration for abstract declarator *)
+let abstract_declarator_ref : (parser_state -> declarator) ref = ref (fun _ -> assert false)
+let parse_abstract_declarator state = !abstract_declarator_ref state
+
 (** Check if name is a typedef *)
 let is_typedef_name _name =
   (* TODO: Maintain symbol table to track typedef names *)
@@ -333,6 +337,54 @@ let rec parse_direct_declarator state : Ast.direct_declarator =
   
   parse_suffix base
 
+(** Parse abstract direct declarator *)
+and parse_abstract_direct_declarator state : Ast.direct_declarator option =
+  let base =
+    match (peek state).token with
+    | LeftParen when is_abstract_declarator_start (peek_n state 1) ->
+        advance state;
+        let decl = parse_abstract_declarator state in
+        expect state RightParen;
+        Some (Ast.ParenDecl decl)
+    | LeftBracket | LeftParen ->
+        None  (* No base, just suffixes *)
+    | _ -> None
+  in
+  
+  (* Parse suffixes *)
+  let rec parse_suffix (decl_opt : Ast.direct_declarator option) =
+    match (peek state).token with
+    | LeftBracket ->
+        advance state;
+        let size =
+          if check state RightBracket then None
+          else Some (parse_expr state)
+        in
+        expect state RightBracket;
+        let decl = match decl_opt with
+          | Some d -> d
+          | None -> Ast.Ident ""  (* Empty identifier for abstract declarator *)
+        in
+        parse_suffix (Some (Ast.ArrayDecl (decl, size) : Ast.direct_declarator))
+    | LeftParen when (peek_n state 1).token <> RightParen ->
+        advance state;
+        let params = parse_parameter_list state in
+        expect state RightParen;
+        let decl = match decl_opt with
+          | Some d -> d
+          | None -> Ast.Ident ""
+        in
+        parse_suffix (Some (Ast.FuncDecl (decl, params) : Ast.direct_declarator))
+    | _ -> decl_opt
+  in
+  
+  parse_suffix base
+
+and is_abstract_declarator_start tok =
+  match tok.token with
+  | Star | LeftParen | LeftBracket -> true
+  | _ -> false
+
 and is_declarator_start tok =
   match tok.token with
   | Star | Identifier _ | LeftParen -> true
@@ -385,6 +437,22 @@ let parse_declarator_impl state =
         parse_pointer state (Ast.DirectDecl (parse_direct_declarator state))
       else
         ptr_decl
+
+(** Implementation of parse_abstract_declarator *)
+let parse_abstract_declarator_impl state =
+  let ptr_decl = parse_pointer state (Ast.DirectDecl (Ast.Ident "")) in
+  match ptr_decl with
+  | Ast.DirectDecl (Ast.Ident "") ->
+      (* No pointer, check for abstract direct declarator *)
+      (match parse_abstract_direct_declarator state with
+       | Some dd -> Ast.DirectDecl dd
+       | None -> Ast.DirectDecl (Ast.Ident ""))  (* Empty abstract declarator *)
+  | Ast.PointerDecl (quals, Ast.DirectDecl (Ast.Ident "")) ->
+      (* Pointer with possible abstract direct declarator *)
+      (match parse_abstract_direct_declarator state with
+       | Some dd -> Ast.PointerDecl (quals, Ast.DirectDecl dd)
+       | None -> Ast.PointerDecl (quals, Ast.DirectDecl (Ast.Ident "")))
+  | _ -> ptr_decl
 
 (** Parse initializer *)
 let rec parse_initializer state =
@@ -523,7 +591,12 @@ and parse_unary_expr state =
       if check state LeftParen && is_type_name (peek_n state 1) then begin
         advance state;  (* Skip ( *)
         let (specs, quals) = parse_type_specs state in
-        let decl = parse_declarator state in
+        let decl = 
+          if is_abstract_declarator_start (peek state) || check state RightParen then
+            parse_abstract_declarator state
+          else
+            parse_declarator state
+        in
         expect state RightParen;
         Ast.SizeofType { specs; quals; decl }
       end else
@@ -542,7 +615,12 @@ and parse_cast_expr state =
   if check state LeftParen && is_type_name (peek_n state 1) then begin
     advance state;  (* Skip ( *)
     let (specs, quals) = parse_type_specs state in
-    let decl = parse_declarator state in
+    let decl = 
+      if is_abstract_declarator_start (peek state) || check state RightParen then
+        parse_abstract_declarator state
+      else
+        parse_declarator state
+    in
     expect state RightParen;
     let expr = parse_cast_expr state in
     Ast.Cast ({ specs; quals; decl }, expr)
@@ -926,7 +1004,8 @@ let _ =
   stmt_ref := parse_stmt_impl;
   decl_ref := parse_decl_impl;
   type_spec_ref := parse_type_specs_impl;
-  declarator_ref := parse_declarator_impl
+  declarator_ref := parse_declarator_impl;
+  abstract_declarator_ref := parse_abstract_declarator_impl
 
 (** Main parse function *)
 let parse tokens =

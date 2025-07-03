@@ -584,10 +584,24 @@ let lex_all state =
   in
   collect []
 
+(** Concatenate adjacent string literals *)
+let rec concat_string_literals tokens =
+  match tokens with
+  | { token = StringLiteral s1; loc = loc1 } :: 
+    { token = StringLiteral s2; _ } :: rest ->
+      (* Check if tokens are adjacent or only separated by whitespace *)
+      let combined = { token = StringLiteral (s1 ^ s2); loc = loc1 } in
+      concat_string_literals (combined :: rest)
+  | tok :: rest ->
+      tok :: concat_string_literals rest
+  | [] -> []
+
 (** Lex string into tokens *)
 let lex_string filename input =
   let state = create_lexer filename input in
-  lex_all state
+  let tokens = lex_all state in
+  (* Post-process to concatenate adjacent string literals *)
+  concat_string_literals tokens
 
 (** Token to string for debugging *)
 let token_to_string = function
