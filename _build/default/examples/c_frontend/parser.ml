@@ -124,7 +124,7 @@ let rec parse_struct_or_union state =
           let spec_quals = parse_type_specs state in
           let declarators = parse_struct_declarator_list state in
           expect state Semicolon;
-          let decl = { spec_quals; declarators } in
+          let decl = { Ast.spec_quals; Ast.declarators } in
           parse_members (decl :: acc)
       in
       let members = parse_members [] in
@@ -135,9 +135,9 @@ let rec parse_struct_or_union state =
   in
   
   if is_struct then
-    StructType (tag, decls)
+    Ast.StructType (tag, decls)
   else
-    UnionType (tag, decls)
+    Ast.UnionType (tag, decls)
 
 and parse_struct_declarator_list state =
   let rec parse_list acc =
@@ -146,15 +146,15 @@ and parse_struct_declarator_list state =
         (* Bit field without declarator *)
         advance state;
         let width = parse_expr state in
-        BitField (None, width)
+        Ast.BitField (None, width)
       end else begin
         let d = parse_declarator state in
         if check state Colon then begin
           advance state;
           let width = parse_expr state in
-          BitField (Some d, width)
+          Ast.BitField (Some d, width)
         end else
-          StructDecl d
+          Ast.StructDecl d
       end
     in
     if consume state Comma then
@@ -204,7 +204,7 @@ let parse_enum state =
       None
   in
   
-  EnumType (tag, items)
+  Ast.EnumType (tag, items)
 
 (** Parse type specifier *)
 let parse_type_specifier state =
@@ -291,24 +291,24 @@ let parse_pointer state =
         | None -> ()
       in
       parse_quals ();
-      parse_ptr (PointerDecl (List.rev !quals, decl))
+      parse_ptr (Ast.PointerDecl (List.rev !quals, decl))
     end else
       decl
   in
   parse_ptr
 
 (** Parse direct declarator *)
-let rec parse_direct_declarator state =
-  let base =
+let rec parse_direct_declarator state : Ast.direct_declarator =
+  let base : Ast.direct_declarator =
     match (peek state).token with
     | Identifier name ->
         advance state;
-        Ident name
+        Ast.Ident name
     | LeftParen when is_declarator_start (peek_n state 1) ->
         advance state;
         let decl = parse_declarator state in
         expect state RightParen;
-        ParenDecl decl
+        Ast.ParenDecl decl
     | _ -> parse_error state "Expected identifier or ("
   in
   
@@ -322,12 +322,12 @@ let rec parse_direct_declarator state =
           else Some (parse_expr state)
         in
         expect state RightBracket;
-        parse_suffix (ArrayDecl (decl, size))
+        parse_suffix (Ast.ArrayDecl (decl, size))
     | LeftParen ->
         advance state;
         let params = parse_parameter_list state in
         expect state RightParen;
-        parse_suffix (FuncDecl (decl, params))
+        parse_suffix (Ast.FuncDecl (decl, params))
     | _ -> decl
   in
   
@@ -362,7 +362,7 @@ and parse_parameter_list state =
           else
             None
         in
-        params := { param_specs = specs; param_quals = quals; param_decl = decl } :: !params;
+        params := { Ast.param_specs = specs; Ast.param_quals = quals; Ast.param_decl = decl } :: !params;
         
         if consume state Comma then
           parse_params ()
@@ -370,19 +370,19 @@ and parse_parameter_list state =
     in
     
     parse_params ();
-    Some (ParamList (List.rev !params, !has_ellipsis))
+    Some (Ast.ParamList (List.rev !params, !has_ellipsis))
   end
 
 (** Implementation of parse_declarator *)
 let parse_declarator_impl state =
-  let ptr_decl = parse_pointer state (DirectDecl (Ident "")) in
+  let ptr_decl = parse_pointer state (Ast.DirectDecl (Ast.Ident "")) in
   match ptr_decl with
-  | DirectDecl (Ident "") -> DirectDecl (parse_direct_declarator state)
-  | PointerDecl (quals, DirectDecl (Ident "")) ->
-      PointerDecl (quals, DirectDecl (parse_direct_declarator state))
+  | Ast.DirectDecl (Ast.Ident "") -> Ast.DirectDecl (parse_direct_declarator state)
+  | Ast.PointerDecl (quals, Ast.DirectDecl (Ast.Ident "")) ->
+      Ast.PointerDecl (quals, Ast.DirectDecl (parse_direct_declarator state))
   | _ -> 
       if is_declarator_start (peek state) then
-        parse_pointer state (DirectDecl (parse_direct_declarator state))
+        parse_pointer state (Ast.DirectDecl (parse_direct_declarator state))
       else
         ptr_decl
 
@@ -392,9 +392,9 @@ let rec parse_initializer state =
     advance state;
     let items = parse_initializer_list state in
     expect state RightBrace;
-    ListInit items
+    Ast.ListInit items
   end else
-    ExprInit (parse_expr state)
+    Ast.ExprInit (parse_expr state)
 
 and parse_initializer_list state =
   let rec parse_list acc =
@@ -405,7 +405,7 @@ and parse_initializer_list state =
         if check state LeftBracket || check state Dot then
           parse_designated_initializer state
         else
-          SimpleInit (parse_initializer state)
+          Ast.SimpleInit (parse_initializer state)
       in
       if consume state Comma then
         parse_list (init :: acc)
@@ -423,14 +423,14 @@ and parse_designated_initializer state =
         advance state;
         let idx = parse_expr state in
         expect state RightBracket;
-        designators := ArrayDesignator idx :: !designators;
+        designators := Ast.ArrayDesignator idx :: !designators;
         parse_designators ()
     | Dot ->
         advance state;
         (match (peek state).token with
          | Identifier name ->
              advance state;
-             designators := MemberDesignator name :: !designators;
+             designators := Ast.MemberDesignator name :: !designators;
              parse_designators ()
          | _ -> parse_error state "Expected identifier after .")
     | _ -> ()
@@ -439,16 +439,16 @@ and parse_designated_initializer state =
   parse_designators ();
   expect state Equal;
   let init = parse_initializer state in
-  DesignatedInit (List.rev !designators, init)
+  Ast.DesignatedInit (List.rev !designators, init)
 
 (** Parse primary expression *)
 let rec parse_primary_expr state =
   match (peek state).token with
-  | IntConstant (v, s) -> advance state; IntLit (v, s)
-  | FloatConstant (v, s) -> advance state; FloatLit (v, s)
-  | CharConstant c -> advance state; CharLit c
-  | StringLiteral s -> advance state; StringLit s
-  | Identifier name -> advance state; Ident name
+  | IntConstant (v, s) -> advance state; Ast.IntLit (v, s)
+  | FloatConstant (v, s) -> advance state; Ast.FloatLit (v, s)
+  | CharConstant c -> advance state; Ast.CharLit c
+  | StringLiteral s -> advance state; Ast.StringLit s
+  | Identifier name -> advance state; Ast.Ident name
   | LeftParen ->
       advance state;
       let e = parse_expr state in
@@ -464,32 +464,32 @@ and parse_postfix_expr state =
         advance state;
         let idx = parse_expr state in
         expect state RightBracket;
-        parse_suffix (ArrayRef (expr, idx))
+        parse_suffix (Ast.ArrayRef (expr, idx))
     | LeftParen ->
         advance state;
         let args = parse_arg_list state in
         expect state RightParen;
-        parse_suffix (FuncCall (expr, args))
+        parse_suffix (Ast.FuncCall (expr, args))
     | Dot ->
         advance state;
         (match (peek state).token with
          | Identifier name ->
              advance state;
-             parse_suffix (Member (expr, name))
+             parse_suffix (Ast.Member (expr, name))
          | _ -> parse_error state "Expected identifier after .")
     | Arrow ->
         advance state;
         (match (peek state).token with
          | Identifier name ->
              advance state;
-             parse_suffix (PtrMember (expr, name))
+             parse_suffix (Ast.PtrMember (expr, name))
          | _ -> parse_error state "Expected identifier after ->")
     | PlusPlus ->
         advance state;
-        parse_suffix (UnOp (PostInc, expr))
+        parse_suffix (Ast.UnOp (Ast.PostInc, expr))
     | MinusMinus ->
         advance state;
-        parse_suffix (UnOp (PostDec, expr))
+        parse_suffix (Ast.UnOp (Ast.PostDec, expr))
     | _ -> expr
   in
   parse_suffix (parse_primary_expr state)
@@ -510,14 +510,14 @@ and parse_arg_list state =
 (** Parse unary expression *)
 and parse_unary_expr state =
   match (peek state).token with
-  | PlusPlus -> advance state; UnOp (PreInc, parse_unary_expr state)
-  | MinusMinus -> advance state; UnOp (PreDec, parse_unary_expr state)
-  | Plus -> advance state; UnOp (Ast.Plus, parse_cast_expr state)
-  | Minus -> advance state; UnOp (Ast.Minus, parse_cast_expr state)
-  | Bang -> advance state; UnOp (Not, parse_cast_expr state)
-  | Tilde -> advance state; UnOp (BitNot, parse_cast_expr state)
-  | Star -> advance state; UnOp (Deref, parse_cast_expr state)
-  | Ampersand -> advance state; UnOp (AddrOf, parse_cast_expr state)
+  | PlusPlus -> advance state; Ast.UnOp (Ast.PreInc, parse_unary_expr state)
+  | MinusMinus -> advance state; Ast.UnOp (Ast.PreDec, parse_unary_expr state)
+  | Plus -> advance state; Ast.UnOp (Ast.Plus, parse_cast_expr state)
+  | Minus -> advance state; Ast.UnOp (Ast.Minus, parse_cast_expr state)
+  | Bang -> advance state; Ast.UnOp (Ast.Not, parse_cast_expr state)
+  | Tilde -> advance state; Ast.UnOp (Ast.BitNot, parse_cast_expr state)
+  | Star -> advance state; Ast.UnOp (Ast.Deref, parse_cast_expr state)
+  | Ampersand -> advance state; Ast.UnOp (Ast.AddrOf, parse_cast_expr state)
   | Sizeof ->
       advance state;
       if check state LeftParen && is_type_name (peek_n state 1) then begin
@@ -525,9 +525,9 @@ and parse_unary_expr state =
         let (specs, quals) = parse_type_specs state in
         let decl = parse_declarator state in
         expect state RightParen;
-        SizeofType { specs; quals; decl }
+        Ast.SizeofType { specs; quals; decl }
       end else
-        SizeofExpr (parse_unary_expr state)
+        Ast.SizeofExpr (parse_unary_expr state)
   | _ -> parse_postfix_expr state
 
 and is_type_name tok =
@@ -545,13 +545,13 @@ and parse_cast_expr state =
     let decl = parse_declarator state in
     expect state RightParen;
     let expr = parse_cast_expr state in
-    Cast ({ specs; quals; decl }, expr)
+    Ast.Cast ({ specs; quals; decl }, expr)
   end else
     parse_unary_expr state
 
 (** Parse binary expressions with precedence *)
 and parse_binary_expr state min_prec =
-  let rec get_prec = function
+  let get_prec = function
     | Comma -> 1
     | Equal | PlusEqual | MinusEqual | StarEqual | SlashEqual
     | PercentEqual | LeftShiftEqual | RightShiftEqual
@@ -570,17 +570,17 @@ and parse_binary_expr state min_prec =
     | _ -> 0
   in
   
-  let rec token_to_binop = function
-    | Plus -> Add | Minus -> Sub | Star -> Mul | Slash -> Div | Percent -> Mod
-    | Less -> Lt | Greater -> Gt | LessEqual -> Le | GreaterEqual -> Ge
-    | EqualEqual -> Eq | BangEqual -> Ne
-    | Ampersand -> BitAnd | Pipe -> BitOr | Caret -> BitXor
-    | LeftShift -> Shl | RightShift -> Shr
-    | AmpAmp -> LogAnd | PipePipe -> LogOr
-    | Equal -> Assign | PlusEqual -> AddAssign | MinusEqual -> SubAssign
-    | StarEqual -> MulAssign | SlashEqual -> DivAssign | PercentEqual -> ModAssign
-    | AmpEqual -> AndAssign | PipeEqual -> OrAssign | CaretEqual -> XorAssign
-    | LeftShiftEqual -> ShlAssign | RightShiftEqual -> ShrAssign
+  let token_to_binop = function
+    | Plus -> Ast.Add | Minus -> Ast.Sub | Star -> Ast.Mul | Slash -> Ast.Div | Percent -> Ast.Mod
+    | Less -> Ast.Lt | Greater -> Ast.Gt | LessEqual -> Ast.Le | GreaterEqual -> Ast.Ge
+    | EqualEqual -> Ast.Eq | BangEqual -> Ast.Ne
+    | Ampersand -> Ast.BitAnd | Pipe -> Ast.BitOr | Caret -> Ast.BitXor
+    | LeftShift -> Ast.Shl | RightShift -> Ast.Shr
+    | AmpAmp -> Ast.LogAnd | PipePipe -> Ast.LogOr
+    | Equal -> Ast.Assign | PlusEqual -> Ast.AddAssign | MinusEqual -> Ast.SubAssign
+    | StarEqual -> Ast.MulAssign | SlashEqual -> Ast.DivAssign | PercentEqual -> Ast.ModAssign
+    | AmpEqual -> Ast.AndAssign | PipeEqual -> Ast.OrAssign | CaretEqual -> Ast.XorAssign
+    | LeftShiftEqual -> Ast.ShlAssign | RightShiftEqual -> Ast.ShrAssign
     | _ -> failwith "Not a binary operator"
   in
   
@@ -595,7 +595,7 @@ and parse_binary_expr state min_prec =
           let true_expr = parse_expr state in
           expect state Colon;
           let false_expr = parse_conditional_expr state in
-          parse_rhs (TernOp (lhs, true_expr, false_expr)) min_prec
+          parse_rhs (Ast.TernOp (lhs, true_expr, false_expr)) min_prec
       | Comma ->
           let rec parse_comma_list acc =
             if consume state Comma then
@@ -605,7 +605,7 @@ and parse_binary_expr state min_prec =
           in
           let exprs = parse_comma_list [lhs] in
           if List.length exprs > 1 then
-            Comma exprs
+            Ast.Comma exprs
           else
             lhs
       | _ ->
@@ -613,7 +613,7 @@ and parse_binary_expr state min_prec =
           let op = token_to_binop tok in
           let rhs = parse_cast_expr state in
           let rhs' = parse_prec rhs (prec + 1) in
-          parse_rhs (BinOp (op, lhs, rhs')) min_prec
+          parse_rhs (Ast.BinOp (op, lhs, rhs')) min_prec
     end else
       lhs
       
@@ -645,17 +645,17 @@ let parse_expr_impl state =
 (** Parse statement *)
 let rec parse_compound_stmt state =
   expect state LeftBrace;
-  let items = ref [] in
+  let items : Ast.block_item list ref = ref [] in
   
   while not (check state RightBrace) do
     if is_declaration_start state then
-      items := Decl (parse_decl state) :: !items
+      items := Ast.Decl (parse_decl state) :: !items
     else
-      items := Stmt (parse_stmt state) :: !items
+      items := Ast.Stmt (parse_stmt state) :: !items
   done;
   
   expect state RightBrace;
-  CompoundStmt (List.rev !items)
+  Ast.CompoundStmt (List.rev !items)
 
 and is_declaration_start state =
   match (peek state).token with
@@ -681,14 +681,14 @@ and parse_selection_stmt state =
         else
           None
       in
-      IfStmt (cond, then_stmt, else_stmt)
+      Ast.IfStmt (cond, then_stmt, else_stmt)
   | Switch ->
       advance state;
       expect state LeftParen;
       let expr = parse_expr state in
       expect state RightParen;
       let body = parse_stmt state in
-      SwitchStmt (expr, body)
+      Ast.SwitchStmt (expr, body)
   | _ -> parse_error state "Expected if or switch"
 
 (** Parse iteration statement *)
@@ -700,7 +700,7 @@ and parse_iteration_stmt state =
       let cond = parse_expr state in
       expect state RightParen;
       let body = parse_stmt state in
-      WhileStmt (cond, body)
+      Ast.WhileStmt (cond, body)
   | Do ->
       advance state;
       let body = parse_stmt state in
@@ -709,7 +709,7 @@ and parse_iteration_stmt state =
       let cond = parse_expr state in
       expect state RightParen;
       expect state Semicolon;
-      DoWhileStmt (body, cond)
+      Ast.DoWhileStmt (body, cond)
   | For ->
       advance state;
       expect state LeftParen;
@@ -729,7 +729,7 @@ and parse_iteration_stmt state =
       in
       expect state RightParen;
       let body = parse_stmt state in
-      ForStmt (init, cond, update, body)
+      Ast.ForStmt (init, cond, update, body)
   | _ -> parse_error state "Expected while, do, or for"
 
 (** Parse jump statement *)
@@ -741,16 +741,16 @@ and parse_jump_stmt state =
        | Identifier label ->
            advance state;
            expect state Semicolon;
-           GotoStmt label
+           Ast.GotoStmt label
        | _ -> parse_error state "Expected label after goto")
   | Continue ->
       advance state;
       expect state Semicolon;
-      ContinueStmt
+      Ast.ContinueStmt
   | Break ->
       advance state;
       expect state Semicolon;
-      BreakStmt
+      Ast.BreakStmt
   | Return ->
       advance state;
       let expr =
@@ -758,7 +758,7 @@ and parse_jump_stmt state =
         else Some (parse_expr state)
       in
       expect state Semicolon;
-      ReturnStmt expr
+      Ast.ReturnStmt expr
   | _ -> parse_error state "Expected goto, continue, break, or return"
 
 (** Parse labeled statement *)
@@ -768,18 +768,18 @@ and parse_labeled_stmt state =
       advance state;
       advance state;  (* Skip : *)
       let stmt = parse_stmt state in
-      LabeledStmt (label, stmt)
+      Ast.LabeledStmt (label, stmt)
   | Case ->
       advance state;
       let expr = parse_expr state in
       expect state Colon;
       let stmt = parse_stmt state in
-      CaseStmt (expr, stmt)
+      Ast.CaseStmt (expr, stmt)
   | Default ->
       advance state;
       expect state Colon;
       let stmt = parse_stmt state in
-      DefaultStmt stmt
+      Ast.DefaultStmt stmt
   | _ -> parse_error state "Expected label, case, or default"
 
 (** Implementation of parse_stmt *)
@@ -793,11 +793,11 @@ let parse_stmt_impl state =
   | Case | Default -> parse_labeled_stmt state
   | Semicolon ->
       advance state;
-      ExprStmt None
+      Ast.ExprStmt None
   | _ ->
       let expr = parse_expr state in
       expect state Semicolon;
-      ExprStmt (Some expr)
+      Ast.ExprStmt (Some expr)
 
 (** Parse declaration *)
 let parse_decl_impl state =
@@ -805,7 +805,12 @@ let parse_decl_impl state =
   
   let init_decls = ref [] in
   
-  if not (check state Semicolon) then begin
+  (* Check if this is just a type declaration (e.g., struct point { ... };) *)
+  if check state Semicolon then begin
+    (* Just a type declaration, no variables *)
+    advance state;  (* Consume semicolon *)
+  end else begin
+    (* Parse declarators *)
     let rec parse_init_decls () =
       let decl = parse_declarator state in
       let init =
@@ -814,16 +819,16 @@ let parse_decl_impl state =
         else
           None
       in
-      init_decls := { decl; init } :: !init_decls;
+      init_decls := { Ast.decl; Ast.init } :: !init_decls;
       
       if consume state Comma then
         parse_init_decls ()
     in
-    parse_init_decls ()
+    parse_init_decls ();
+    expect state Semicolon;
   end;
   
-  expect state Semicolon;
-  { storage; specs; quals; init_decls = List.rev !init_decls }
+  { Ast.storage; Ast.specs; Ast.quals; Ast.init_decls = List.rev !init_decls }
 
 (** Parse function definition *)
 let parse_function_def state storage specs quals declarator =
@@ -850,40 +855,61 @@ let parse_function_def state storage specs quals declarator =
   end;
   
   let body = parse_compound_stmt state in
-  { storage; specs; quals; declarator; 
-    old_style_params = List.rev !old_style_params; body }
+  { Ast.storage; Ast.specs; Ast.quals; Ast.declarator; 
+    Ast.old_style_params = List.rev !old_style_params; Ast.body }
 
 (** Parse external declaration *)
 let parse_external_decl state =
   let (storage, specs, quals) = parse_decl_specifiers state in
   
+  (* Check if this is just a type declaration (struct/union/enum without variables) *)
+  if check state Semicolon then begin
+    advance state;  (* Consume semicolon *)
+    Ast.Decl { Ast.storage; Ast.specs; Ast.quals; Ast.init_decls = [] }
+  end
   (* Check if this might be a function definition *)
-  if specs <> [] || quals <> [] then begin
+  else if specs <> [] || quals <> [] then begin
     let saved_pos = state.pos in
-    let decl = parse_declarator state in
     
-    (* Check if this is a function definition *)
-    let is_func_def =
-      match decl with
-      | DirectDecl (FuncDecl _) | PointerDecl (_, DirectDecl (FuncDecl _)) ->
-          check state LeftBrace || 
-          (match (peek state).token with Identifier _ -> true | _ -> false)
-      | _ -> false
+    (* Try to parse a declarator *)
+    let decl_opt = 
+      try Some (parse_declarator state)
+      with _ -> None
     in
     
-    if is_func_def then
-      FuncDef (parse_function_def state storage specs quals decl)
-    else begin
-      (* Backtrack and parse as declaration *)
-      state.pos <- saved_pos;
-      Decl (parse_decl state)
-    end
+    match decl_opt with
+    | Some decl ->
+        (* Check if this is a function definition *)
+        let is_func_def =
+          match decl with
+          | Ast.DirectDecl (Ast.FuncDecl _) | Ast.PointerDecl (_, Ast.DirectDecl (Ast.FuncDecl _)) ->
+              check state LeftBrace || 
+              (match (peek state).token with Identifier _ -> true | _ -> false)
+          | _ -> false
+        in
+        
+        if is_func_def then
+          Ast.FuncDef (parse_function_def state storage specs quals decl)
+        else begin
+          (* Backtrack and parse as declaration *)
+          state.pos <- saved_pos;
+          Ast.Decl (parse_decl state)
+        end
+    | None ->
+        (* Backtrack and parse as declaration *)
+        state.pos <- saved_pos;
+        Ast.Decl (parse_decl state)
   end else
-    Decl (parse_decl state)
+    Ast.Decl (parse_decl state)
 
 (** Parse translation unit *)
 let parse_translation_unit state =
   let decls = ref [] in
+  
+  (* Filter out newlines from the beginning *)
+  while check state Newline do
+    advance state
+  done;
   
   while not (check state Eof) do
     if check state Newline then
@@ -904,5 +930,7 @@ let _ =
 
 (** Main parse function *)
 let parse tokens =
-  let state = create_parser tokens in
+  (* Filter out newline tokens *)
+  let filtered_tokens = List.filter (fun tok -> tok.token <> Newline) tokens in
+  let state = create_parser filtered_tokens in
   parse_translation_unit state

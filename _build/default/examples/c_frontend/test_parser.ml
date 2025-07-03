@@ -31,23 +31,10 @@ let test_parser () =
     
     try
       (* Preprocess *)
-      let pp_state = Preprocessor.create_pp_state "test.c" in
-      let pp_tokens = Preprocessor.tokenize_string input pp_state.current_file 1 in
-      let processed = Preprocessor.process_tokens pp_state pp_tokens in
-      
-      (* Convert preprocessor tokens to lexer tokens *)
-      let lex_input = Buffer.create 256 in
-      List.iter (fun tok ->
-        match tok.Preprocessor.token with
-        | Preprocessor.Whitespace s -> Buffer.add_string lex_input s
-        | Preprocessor.Newline -> Buffer.add_char lex_input '\n'
-        | _ -> 
-            Buffer.add_string lex_input (Preprocessor.token_to_string tok.token);
-            Buffer.add_char lex_input ' '
-      ) processed;
+      let preprocessed = Preprocessor.preprocess_string ~filename:"test.c" input in
       
       (* Lex *)
-      let tokens = Lexer.lex_string "test.c" (Buffer.contents lex_input) in
+      let tokens = Lexer.lex_string "test.c" preprocessed in
       Printf.printf "Lexed %d tokens\n" (List.length tokens);
       
       (* Parse *)

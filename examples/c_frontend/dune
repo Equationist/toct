@@ -99,6 +99,12 @@
  (modules test_parser)
  (modes byte))
 
+(executable
+ (name test_parse_all)
+ (libraries c_frontend)
+ (modules test_parse_all)
+ (modes byte))
+
 (rule
  (alias runtest)
  (action (run ./test_preprocessor.exe)))
