@@ -1001,7 +1001,7 @@ end
 let rec process_tokens state tokens =
   match tokens with
   | [] -> []
-  | { token = Punctuator "#"; loc } :: rest when loc.column = 1 ->
+  | { token = Punctuator "#"; _ } :: rest ->
       (* Preprocessor directive *)
       (* Always parse directives - some need to be processed even in inactive branches *)
       let (directive, rest) = DirectiveParser.parse_directive rest in

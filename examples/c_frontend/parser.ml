@@ -86,6 +86,10 @@ let parse_declarator state = !declarator_ref state
 let abstract_declarator_ref : (parser_state -> declarator) ref = ref (fun _ -> assert false)
 let parse_abstract_declarator state = !abstract_declarator_ref state
 
+(** Forward declaration for assignment expression *)
+let assignment_expr_ref : (parser_state -> expr) ref = ref (fun _ -> assert false)
+let parse_assignment_expr state = !assignment_expr_ref state
+
 (** Check if name is a typedef *)
 let is_typedef_name state name =
   Symbol_table.is_typedef state.symbol_table name
@@ -462,7 +466,7 @@ let rec parse_initializer state =
     expect state RightBrace;
     Ast.ListInit items
   end else
-    Ast.ExprInit (parse_expr state)
+    Ast.ExprInit (parse_assignment_expr state)
 
 and parse_initializer_list state =
   let rec parse_list acc =
@@ -713,7 +717,7 @@ and parse_conditional_expr state =
   parse_binary_expr state 3  (* Start at ternary precedence *)
 
 (** Parse assignment expression *)
-and parse_assignment_expr state =
+and parse_assignment_expr_impl state =
   parse_binary_expr state 2  (* Start at assignment precedence *)
 
 (** Implementation of parse_expr *)
@@ -1060,7 +1064,8 @@ let _ =
   decl_ref := parse_decl_impl;
   type_spec_ref := parse_type_specs_impl;
   declarator_ref := parse_declarator_impl;
-  abstract_declarator_ref := parse_abstract_declarator_impl
+  abstract_declarator_ref := parse_abstract_declarator_impl;
+  assignment_expr_ref := parse_assignment_expr_impl
 
 (** Main parse function *)
 let parse tokens =
