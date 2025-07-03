@@ -115,3 +115,8 @@ module Const = struct
   let array values = ConstArray values
   let struct_val values = ConstStruct values
 end
+
+(* Convert value to constant - for instruction selection *)
+let const_of_value value =
+  (* Default to zero of the value's type *)
+  ConstZero value.ty

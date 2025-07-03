@@ -104,3 +104,13 @@ let rec string_of_ty = function
     let ty_strs = List.map string_of_ty tys in
     Printf.sprintf "packed_struct<<%s>>" (String.concat ", " ty_strs)
   | Ptr -> "ptr"
+
+(* Get size of scalar type only *)
+let size_of_scalar = function
+  | I1 -> 1
+  | I8 -> 1  
+  | I16 -> 2
+  | I32 -> 4
+  | I64 -> 8
+  | F32 -> 4
+  | F64 -> 8

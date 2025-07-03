@@ -154,6 +154,16 @@ let collect_uses (func: I.func) : (int * string) list =
         List.iter (fun (value, _) -> add_use block.I.label value) operands
       | I.Const const_val ->
         add_const_uses block.I.label const_val
+      | I.Freeze v ->
+        add_use block.I.label v
+      | I.ExtractValue (agg, _) ->
+        add_use block.I.label agg
+      | I.InsertValue (agg, v, _) ->
+        add_use block.I.label agg;
+        add_use block.I.label v
+      | I.VaArg (va_list, _) ->
+        add_use block.I.label va_list
+      | I.Fence _ -> ()
     ) block.I.instructions;
     
     (* Check terminator uses *)

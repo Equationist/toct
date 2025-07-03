@@ -4,6 +4,8 @@
 (files
  (lib
   (META
+   backend/arm64_backend.ml
+   backend/codegen.ml
    backend/compilerkit_backend.cma
    backend/compilerkit_backend.cmi
    backend/compilerkit_backend.cmt
@@ -11,15 +13,31 @@
    backend/compilerkit_backend__.cmi
    backend/compilerkit_backend__.cmt
    backend/compilerkit_backend__.ml
+   backend/compilerkit_backend__Arm64_backend.cmi
+   backend/compilerkit_backend__Arm64_backend.cmt
+   backend/compilerkit_backend__Codegen.cmi
+   backend/compilerkit_backend__Codegen.cmt
    backend/compilerkit_backend__Dominance.cmi
    backend/compilerkit_backend__Dominance.cmt
+   backend/compilerkit_backend__Instruction_selection.cmi
+   backend/compilerkit_backend__Instruction_selection.cmt
+   backend/compilerkit_backend__Machine.cmi
+   backend/compilerkit_backend__Machine.cmt
+   backend/compilerkit_backend__Register_allocator.cmi
+   backend/compilerkit_backend__Register_allocator.cmt
    backend/compilerkit_backend__Ssa_block_params.cmi
    backend/compilerkit_backend__Ssa_block_params.cmt
    backend/compilerkit_backend__Ssa_verify.cmi
    backend/compilerkit_backend__Ssa_verify.cmt
+   backend/compilerkit_backend__X86_64_backend.cmi
+   backend/compilerkit_backend__X86_64_backend.cmt
    backend/dominance.ml
+   backend/instruction_selection.ml
+   backend/machine.ml
+   backend/register_allocator.ml
    backend/ssa_block_params.ml
    backend/ssa_verify.ml
+   backend/x86_64_backend.ml
    common/compilerkit_common.cma
    common/compilerkit_common.cmi
    common/compilerkit_common.cmt
@@ -141,6 +159,14 @@
     (name Compilerkit_backend)
     (modules
      (module
+      (obj_name compilerkit_backend__Arm64_backend)
+      (visibility public)
+      (source (path Arm64_backend) (impl (path backend/arm64_backend.ml))))
+     (module
+      (obj_name compilerkit_backend__Codegen)
+      (visibility public)
+      (source (path Codegen) (impl (path backend/codegen.ml))))
+     (module
       (obj_name compilerkit_backend)
       (visibility public)
       (source
@@ -151,6 +177,22 @@
       (visibility public)
       (source (path Dominance) (impl (path backend/dominance.ml))))
      (module
+      (obj_name compilerkit_backend__Instruction_selection)
+      (visibility public)
+      (source
+       (path Instruction_selection)
+       (impl (path backend/instruction_selection.ml))))
+     (module
+      (obj_name compilerkit_backend__Machine)
+      (visibility public)
+      (source (path Machine) (impl (path backend/machine.ml))))
+     (module
+      (obj_name compilerkit_backend__Register_allocator)
+      (visibility public)
+      (source
+       (path Register_allocator)
+       (impl (path backend/register_allocator.ml))))
+     (module
       (obj_name compilerkit_backend__Ssa_block_params)
       (visibility public)
       (source
@@ -159,7 +201,11 @@
      (module
       (obj_name compilerkit_backend__Ssa_verify)
       (visibility public)
-      (source (path Ssa_verify) (impl (path backend/ssa_verify.ml))))))
+      (source (path Ssa_verify) (impl (path backend/ssa_verify.ml))))
+     (module
+      (obj_name compilerkit_backend__X86_64_backend)
+      (visibility public)
+      (source (path X86_64_backend) (impl (path backend/x86_64_backend.ml))))))
    (wrapped true))))
 (library
  (name compilerkit.common)

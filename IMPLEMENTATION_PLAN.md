@@ -51,6 +51,14 @@ The **Tiny OCaml Compiler Toolkit (TOCT)** is a modular compiler infrastructure 
   - [x] Updated pretty printer to output spec-compliant PIR
   - [x] **Tests**: All examples parse correctly, pretty printer outputs valid PIR
 
+- [x] **5.1. PIR Extended Features** ✅ COMPLETE (2025-07-03)
+  - [x] Added module declarations and extern declarations support
+  - [x] Implemented new core operations: freeze, extractvalue, insertvalue, va_arg, fence
+  - [x] Documented value naming conventions (v0, @global, %param)
+  - [x] Established standard attribute namespaces (pir.*, debug.*, opt.*, lang.*)
+  - [x] Updated PIR specification to version 0.9.1
+  - [x] **Tests**: Comprehensive tests for all new operations and attribute system
+
 ### Phase 2: Frontend Helpers (Medium Priority)
 
 - [x] **6. Lexer/Parser Infrastructure** ✅ COMPLETE
