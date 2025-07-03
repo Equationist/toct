@@ -32,10 +32,22 @@
    frontend/compilerkit_frontend__Position.cmt
    frontend/compilerkit_frontend__Pratt.cmi
    frontend/compilerkit_frontend__Pratt.cmt
+   frontend/compilerkit_frontend__Symbol_table.cmi
+   frontend/compilerkit_frontend__Symbol_table.cmt
+   frontend/compilerkit_frontend__Type_infer.cmi
+   frontend/compilerkit_frontend__Type_infer.cmt
+   frontend/compilerkit_frontend__Type_system.cmi
+   frontend/compilerkit_frontend__Type_system.cmt
+   frontend/compilerkit_frontend__Unify.cmi
+   frontend/compilerkit_frontend__Unify.cmt
    frontend/error_reporter.ml
    frontend/lexer_utils.ml
    frontend/position.ml
    frontend/pratt.ml
+   frontend/symbol_table.ml
+   frontend/type_infer.ml
+   frontend/type_system.ml
+   frontend/unify.ml
    pir/attributes.ml
    pir/builder.ml
    pir/compilerkit_pir.cma
@@ -166,7 +178,23 @@
      (module
       (obj_name compilerkit_frontend__Pratt)
       (visibility public)
-      (source (path Pratt) (impl (path frontend/pratt.ml))))))
+      (source (path Pratt) (impl (path frontend/pratt.ml))))
+     (module
+      (obj_name compilerkit_frontend__Symbol_table)
+      (visibility public)
+      (source (path Symbol_table) (impl (path frontend/symbol_table.ml))))
+     (module
+      (obj_name compilerkit_frontend__Type_infer)
+      (visibility public)
+      (source (path Type_infer) (impl (path frontend/type_infer.ml))))
+     (module
+      (obj_name compilerkit_frontend__Type_system)
+      (visibility public)
+      (source (path Type_system) (impl (path frontend/type_system.ml))))
+     (module
+      (obj_name compilerkit_frontend__Unify)
+      (visibility public)
+      (source (path Unify) (impl (path frontend/unify.ml))))))
    (wrapped true))))
 (library
  (name compilerkit.pir)

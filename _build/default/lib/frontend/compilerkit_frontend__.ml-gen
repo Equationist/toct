@@ -12,5 +12,17 @@ module Position = Compilerkit_frontend__Position
 (** @canonical Compilerkit_frontend.Pratt *)
 module Pratt = Compilerkit_frontend__Pratt
 
+(** @canonical Compilerkit_frontend.Symbol_table *)
+module Symbol_table = Compilerkit_frontend__Symbol_table
+
+(** @canonical Compilerkit_frontend.Type_infer *)
+module Type_infer = Compilerkit_frontend__Type_infer
+
+(** @canonical Compilerkit_frontend.Type_system *)
+module Type_system = Compilerkit_frontend__Type_system
+
+(** @canonical Compilerkit_frontend.Unify *)
+module Unify = Compilerkit_frontend__Unify
+
 module Compilerkit_frontend__ = struct end
 [@@deprecated "this module is shadowed"]

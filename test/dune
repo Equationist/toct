@@ -21,3 +21,9 @@
  (package compilerkit-test)
  (modes byte)
  (libraries compilerkit_common compilerkit_pir compilerkit_frontend))
+
+(test
+ (name test_type_system)
+ (package compilerkit-test)
+ (modes byte)
+ (libraries compilerkit_common compilerkit_pir compilerkit_frontend))

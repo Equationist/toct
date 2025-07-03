@@ -53,12 +53,12 @@ The **Tiny OCaml Compiler Toolkit (TOCT)** is a modular compiler infrastructure 
 
 ### Phase 2: Frontend Helpers (Medium Priority)
 
-- [ ] **6. Lexer/Parser Infrastructure**
-  - [ ] Pratt parser combinator DSL
-  - [ ] Menhir integration helpers
-  - [ ] Position tracking and error reporting
-  - [ ] Common lexer utilities
-  - [ ] **Tests**: Lexer token recognition, parser combinators, error recovery
+- [x] **6. Lexer/Parser Infrastructure** ✅ COMPLETE
+  - [x] Pratt parser combinator DSL
+  - [x] Position tracking and error reporting
+  - [x] Common lexer utilities
+  - [x] **Tests**: Lexer token recognition, parser combinators, error recovery
+  - [ ] Menhir integration helpers (skipped - not needed)
 
 - [ ] **7. Symbol Table & Type System**
   - [ ] Scoped symbol management
@@ -234,6 +234,13 @@ compilerkit/
   - Fixed lexer to properly distinguish between block labels and parameter types
   - Created example PIR text files demonstrating various language features
   - All parser tests passing successfully
+- **2025-07-03**: Completed Lexer/Parser Infrastructure:
+  - Implemented Pratt parser combinator DSL with operator precedence
+  - Created position tracking system for accurate error reporting
+  - Built comprehensive error reporter with source context display
+  - Added common lexer utilities for tokenization patterns
+  - Wrote extensive test suite for parser combinators
+  - All tests passing successfully
 
 ## References
 
