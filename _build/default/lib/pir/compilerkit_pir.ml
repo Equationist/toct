@@ -7,6 +7,7 @@ module Values = Values
 module Instructions = Instructions
 module Builder = Builder
 module Pretty_printer = Pretty_printer
+module Linter = Linter
 
 (* Re-export commonly used types *)
 type ty = Types.ty

@@ -12,14 +12,14 @@ The **Tiny OCaml Compiler Toolkit (TOCT)** is a modular compiler infrastructure 
 
 ## Implementation Status
 
-### Phase 1: Core Infrastructure (High Priority)
+### Phase 1: Core Infrastructure (High Priority) ✅ COMPLETE
 
 - [x] **1. Project Structure & Build System**
   - [x] Create dune-project configuration
   - [x] Set up library structure (common, pir, frontend, backend, target)
   - [x] Create CLI tools structure (pirc, pir-objdump)
   - [x] Set up test framework with dune runtest
-  - [ ] Create examples directory
+  - [x] Create examples directory
   - [x] **Tests**: Verify build system and basic project structure
 
 - [x] **2. PIR Core Data Structures**
@@ -30,12 +30,12 @@ The **Tiny OCaml Compiler Toolkit (TOCT)** is a modular compiler infrastructure 
   - [x] Control flow graph representation
   - [x] **Tests**: Type equality, instruction parsing, CFG construction
 
-- [ ] **3. PIR Builder & Utilities**
+- [x] **3. PIR Builder & Utilities**
   - [x] Monadic builder interface for CFG construction
   - [x] Pretty-printer with syntax highlighting
-  - [ ] Linter for SSA/type verification
+  - [x] Linter for SSA/type verification
   - [x] Attribute attachment system (JSON-based)
-  - [x] **Tests**: Builder API, pretty-print roundtrip, linter validation (except linter)
+  - [x] **Tests**: Builder API, pretty-print roundtrip, linter validation
 
 ### Phase 2: Frontend Helpers (Medium Priority)
 
@@ -202,14 +202,16 @@ compilerkit/
 - **2025-07-03**: Initial project analysis and planning completed
 - **2025-07-03**: Git repository initialized with documentation
 - **2025-07-03**: Implementation plan created with integrated testing strategy
-- **2025-07-03**: Completed PIR core infrastructure implementation:
+- **2025-07-03**: Completed Phase 1 - Core Infrastructure:
   - Implemented complete type system with scalar, vector, struct, and array types
   - Created value representation with attributes support
   - Implemented full instruction set (40+ opcodes) including binops, memory, control flow
   - Built monadic builder interface for CFG construction
   - Implemented pretty printer with syntax highlighting
+  - Created PIR linter for SSA and type verification
   - Added comprehensive unit tests for all modules
   - Created integration tests for builder + pretty printer roundtrip
+  - Added example programs demonstrating PIR usage
 
 ## References
 

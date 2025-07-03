@@ -9,6 +9,9 @@ module Builder = Compilerkit_pir__Builder
 (** @canonical Compilerkit_pir.Instructions *)
 module Instructions = Compilerkit_pir__Instructions
 
+(** @canonical Compilerkit_pir.Linter *)
+module Linter = Compilerkit_pir__Linter
+
 (** @canonical Compilerkit_pir.Pretty_printer *)
 module Pretty_printer = Compilerkit_pir__Pretty_printer
 

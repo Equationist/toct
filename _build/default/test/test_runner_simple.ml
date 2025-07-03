@@ -251,6 +251,84 @@ let test_builder_pretty_printer_integration () =
   
   print_endline "✓ All Builder + Pretty Printer integration tests passed"
 
+(* Test PIR Linter *)
+let test_pir_linter () =
+  print_endline "Running PIR Linter tests...";
+  
+  (* Test 1: Valid function passes linting *)
+  let valid_func = Builder.build_function "valid" [("x", Types.Scalar Types.I32)] (Some (Types.Scalar Types.I32)) (fun state ->
+    let open Builder in
+    let (s1, x) = lookup_value "x" state in
+    let (s2, one) = const_int (Types.Scalar Types.I32) 1 s1 in
+    let (s3, result) = add "result" x one s2 in
+    ret (Some result) s3
+  ) in
+  
+  let result1 = Linter.lint_function valid_func in
+  assert (Linter.is_valid result1);
+  assert (result1.errors = []);
+  
+  (* Test 2: Type mismatch detection *)
+  let i32_val = Values.create_simple_value (Types.Scalar Types.I32) in
+  let i64_val = Values.create_simple_value (Types.Scalar Types.I64) in
+  let bad_add = Instructions.Binop (Instructions.Add, Instructions.NoFlag, i32_val, i64_val) in
+  let bad_instr = Instructions.create_simple_instruction bad_add in
+  let bad_block = Instructions.create_block "entry" [] [bad_instr] (Instructions.Ret None) in
+  let bad_func1 = Instructions.create_func "bad_types" [] None [bad_block] in
+  
+  let result2 = Linter.lint_function bad_func1 in
+  assert (not (Linter.is_valid result2));
+  assert (List.length result2.errors > 0);
+  
+  (* Test 3: SSA violation detection - redefinition *)
+  let env = Linter.ValueEnv.create () in
+  let v1 = Values.create_simple_value (Types.Scalar Types.I32) in
+  let _ = Linter.ValueEnv.define "x" v1 "entry" env in
+  let redef_result = Linter.ValueEnv.define "x" v1 "entry" env in
+  assert (match redef_result with Error (Linter.RedefinedValue _) -> true | _ -> false);
+  
+  (* Test 4: Missing return value *)
+  let func_no_ret = Instructions.create_func "no_return" [] (Some (Types.Scalar Types.I32)) 
+    [Instructions.create_block "entry" [] [] (Instructions.Ret None)] in
+  let result4 = Linter.lint_function func_no_ret in
+  assert (not (Linter.is_valid result4));
+  
+  (* Test 5: Invalid terminator target *)
+  let invalid_jump_block = Instructions.create_block "entry" [] [] (Instructions.Jmp "missing_block") in
+  let func_bad_jump = Instructions.create_func "bad_jump" [] None [invalid_jump_block] in
+  let result5 = Linter.lint_function func_bad_jump in
+  assert (not (Linter.is_valid result5));
+  assert (List.exists (function 
+    | Linter.InvalidTerminator (_, _) -> true 
+    | _ -> false) result5.errors);
+  
+  (* Test 6: Unreachable block detection *)
+  let entry_block = Instructions.create_block "entry" [] [] (Instructions.Ret None) in
+  let unreachable_block = Instructions.create_block "unreachable" [] [] (Instructions.Ret None) in
+  let func_unreachable = Instructions.create_func "has_unreachable" [] None [entry_block; unreachable_block] in
+  let result6 = Linter.lint_function func_unreachable in
+  assert (List.exists (function 
+    | Linter.UnreachableBlock "unreachable" -> true 
+    | _ -> false) result6.errors);
+  
+  (* Test 7: Valid CFG with branches *)
+  let cfg_func = Builder.build_function "cfg_test" [("cond", Types.Scalar Types.I1)] None (fun state ->
+    let open Builder in
+    let (s1, cond) = lookup_value "cond" state in
+    let (s2, ()) = br cond "then" "else" s1 in
+    let (s3, ()) = set_current_block "then" s2 in
+    let (s4, ()) = jmp "end" s3 in
+    let (s5, ()) = set_current_block "else" s4 in
+    let (s6, ()) = jmp "end" s5 in
+    let (s7, ()) = set_current_block "end" s6 in
+    ret None s7
+  ) in
+  
+  let result7 = Linter.lint_function cfg_func in
+  assert (Linter.is_valid result7);
+  
+  print_endline "✓ All PIR Linter tests passed"
+
 let run_all_tests () =
   print_endline "\n=== TOCT Test Suite ===\n";
   
@@ -276,6 +354,9 @@ let run_all_tests () =
   print_endline "";
   
   test_builder_pretty_printer_integration ();
+  print_endline "";
+  
+  test_pir_linter ();
   print_endline "";
   
   print_endline "🎉 All TOCT tests passed! 🎉"

@@ -36,6 +36,8 @@
    pir/compilerkit_pir__Builder.cmt
    pir/compilerkit_pir__Instructions.cmi
    pir/compilerkit_pir__Instructions.cmt
+   pir/compilerkit_pir__Linter.cmi
+   pir/compilerkit_pir__Linter.cmt
    pir/compilerkit_pir__Pretty_printer.cmi
    pir/compilerkit_pir__Pretty_printer.cmt
    pir/compilerkit_pir__Types.cmi
@@ -43,6 +45,7 @@
    pir/compilerkit_pir__Values.cmi
    pir/compilerkit_pir__Values.cmt
    pir/instructions.ml
+   pir/linter.ml
    pir/pretty_printer.ml
    pir/types.ml
    pir/values.ml
@@ -149,6 +152,10 @@
       (obj_name compilerkit_pir__Instructions)
       (visibility public)
       (source (path Instructions) (impl (path pir/instructions.ml))))
+     (module
+      (obj_name compilerkit_pir__Linter)
+      (visibility public)
+      (source (path Linter) (impl (path pir/linter.ml))))
      (module
       (obj_name compilerkit_pir__Pretty_printer)
       (visibility public)

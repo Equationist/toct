@@ -1,0 +1,6 @@
+(executables
+ (public_names fibonacci vector_ops memory_ops)
+ (names fibonacci vector_ops memory_ops)
+ (package compilerkit)
+ (modes byte)
+ (libraries compilerkit_pir))
