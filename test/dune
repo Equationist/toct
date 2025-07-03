@@ -27,3 +27,9 @@
  (package compilerkit-test)
  (modes byte)
  (libraries compilerkit_common compilerkit_pir compilerkit_frontend))
+
+(test
+ (name test_ssa)
+ (package compilerkit-test)
+ (modes byte)
+ (libraries compilerkit_common compilerkit_pir compilerkit_backend))

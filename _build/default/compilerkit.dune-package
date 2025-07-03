@@ -8,6 +8,21 @@
    backend/compilerkit_backend.cmi
    backend/compilerkit_backend.cmt
    backend/compilerkit_backend.ml
+   backend/compilerkit_backend__.cmi
+   backend/compilerkit_backend__.cmt
+   backend/compilerkit_backend__.ml
+   backend/compilerkit_backend__Dominance.cmi
+   backend/compilerkit_backend__Dominance.cmt
+   backend/compilerkit_backend__Ssa_block_params.cmi
+   backend/compilerkit_backend__Ssa_block_params.cmt
+   backend/compilerkit_backend__Ssa_transform.cmi
+   backend/compilerkit_backend__Ssa_transform.cmt
+   backend/compilerkit_backend__Ssa_verify.cmi
+   backend/compilerkit_backend__Ssa_verify.cmt
+   backend/dominance.ml
+   backend/ssa_block_params.ml
+   backend/ssa_transform.ml
+   backend/ssa_verify.ml
    common/compilerkit_common.cma
    common/compilerkit_common.cmi
    common/compilerkit_common.cmt
@@ -117,12 +132,42 @@
  (main_module_name Compilerkit_backend)
  (modes byte)
  (modules
-  (singleton
-   (obj_name compilerkit_backend)
-   (visibility public)
-   (source
-    (path Compilerkit_backend)
-    (impl (path backend/compilerkit_backend.ml))))))
+  (wrapped
+   (group
+    (alias
+     (obj_name compilerkit_backend__)
+     (visibility public)
+     (kind alias)
+     (source
+      (path Compilerkit_backend__)
+      (impl (path backend/compilerkit_backend__.ml-gen))))
+    (name Compilerkit_backend)
+    (modules
+     (module
+      (obj_name compilerkit_backend)
+      (visibility public)
+      (source
+       (path Compilerkit_backend)
+       (impl (path backend/compilerkit_backend.ml))))
+     (module
+      (obj_name compilerkit_backend__Dominance)
+      (visibility public)
+      (source (path Dominance) (impl (path backend/dominance.ml))))
+     (module
+      (obj_name compilerkit_backend__Ssa_block_params)
+      (visibility public)
+      (source
+       (path Ssa_block_params)
+       (impl (path backend/ssa_block_params.ml))))
+     (module
+      (obj_name compilerkit_backend__Ssa_transform)
+      (visibility public)
+      (source (path Ssa_transform) (impl (path backend/ssa_transform.ml))))
+     (module
+      (obj_name compilerkit_backend__Ssa_verify)
+      (visibility public)
+      (source (path Ssa_verify) (impl (path backend/ssa_verify.ml))))))
+   (wrapped true))))
 (library
  (name compilerkit.common)
  (kind normal)
