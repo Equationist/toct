@@ -155,6 +155,23 @@ let const_int ty _value =
 let const_bool b =
   const_int (Scalar I1) (if b then 1 else 0)
 
+(* New instruction builders *)
+let freeze ?(attrs=empty ()) result value =
+  emit_instr ~result (Freeze value) attrs
+
+let extractvalue ?(attrs=empty ()) result agg indices =
+  emit_instr ~result (ExtractValue (agg, indices)) attrs
+
+let insertvalue ?(attrs=empty ()) result agg value indices =
+  emit_instr ~result (InsertValue (agg, value, indices)) attrs
+
+let va_arg ?(attrs=empty ()) result va_list ty =
+  emit_instr ~result (VaArg (va_list, ty)) attrs
+
+let fence ?(attrs=empty ()) ordering =
+  emit_instr (Fence ordering) attrs >>= fun _ ->
+  return ()
+
 (* Control flow builders *)
 let ret value =
   finalize_block (Ret value)

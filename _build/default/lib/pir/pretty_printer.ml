@@ -267,6 +267,31 @@ let pp_instr ctx = function
     Printf.sprintf "%s %s" (keyword ctx "phi") (String.concat ", " phi_entries)
   
   | Const c -> pp_const_value ctx c
+  
+  | Freeze v -> 
+    Printf.sprintf "%s %s" (keyword ctx "freeze") (pp_value ctx v)
+  
+  | ExtractValue (agg, indices) ->
+    Printf.sprintf "%s %s, %s" 
+      (keyword ctx "extractvalue")
+      (pp_value ctx agg)
+      (String.concat ", " (List.map string_of_int indices))
+  
+  | InsertValue (agg, v, indices) ->
+    Printf.sprintf "%s %s, %s, %s"
+      (keyword ctx "insertvalue")
+      (pp_value ctx agg)
+      (pp_value ctx v)
+      (String.concat ", " (List.map string_of_int indices))
+  
+  | VaArg (va_list, ty) ->
+    Printf.sprintf "%s %s, %s"
+      (keyword ctx "va_arg")
+      (pp_value ctx va_list)
+      (type_color ctx (Types.string_of_ty ty))
+  
+  | Fence ordering ->
+    Printf.sprintf "%s %s" (keyword ctx "fence") ordering
 
 (* Terminator pretty printing *)
 let pp_terminator ctx = function

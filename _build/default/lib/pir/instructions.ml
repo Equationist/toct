@@ -88,6 +88,11 @@ type instr =
   | Call of callop                                 (* Function calls *)
   | Phi of (value * string) list                   (* SSA phi node *)
   | Const of const_value                           (* Constant values *)
+  | Freeze of value                                (* Convert undef/poison to arbitrary value *)
+  | ExtractValue of value * int list               (* Extract from aggregate *)
+  | InsertValue of value * value * int list        (* Insert into aggregate *)
+  | VaArg of value * ty                            (* Extract variadic argument *)
+  | Fence of string                                (* Memory fence with ordering *)
 
 (* Instruction with result binding *)
 type instruction = {
@@ -162,6 +167,11 @@ let result_type_of_instr = function
   | Call _ | Const _ -> None (* Type depends on specific context *)
   | Phi ((v, _) :: _) -> Some (get_type v)     (* All phi values same type *)
   | Phi [] -> None
+  | Freeze v -> Some (get_type v)               (* Same type as frozen value *)
+  | ExtractValue (_, _) -> None              (* Depends on aggregate type and indices *)
+  | InsertValue (agg, _, _) -> Some (get_type agg) (* Returns modified aggregate *)
+  | VaArg (_, ty) -> Some ty                    (* Returns requested type *)
+  | Fence _ -> None                             (* No result *)
 
 (* Pretty printing *)
 let string_of_flag = function
@@ -195,6 +205,22 @@ let string_of_instr instr =
     Printf.sprintf "icmp.%s %s, %s" 
       (string_of_icmp_pred pred) (string_of_value v1) (string_of_value v2)
   | Const const_val -> string_of_const_value const_val
+  | Freeze v -> Printf.sprintf "freeze %s" (string_of_value v)
+  | ExtractValue (agg, indices) ->
+    Printf.sprintf "extractvalue %s, %s" 
+      (string_of_value agg) 
+      (String.concat ", " (List.map string_of_int indices))
+  | InsertValue (agg, v, indices) ->
+    Printf.sprintf "insertvalue %s, %s, %s" 
+      (string_of_value agg)
+      (string_of_value v)
+      (String.concat ", " (List.map string_of_int indices))
+  | VaArg (va_list, ty) ->
+    Printf.sprintf "va_arg %s, %s" 
+      (string_of_value va_list)
+      (Types.string_of_ty ty)
+  | Fence ordering ->
+    Printf.sprintf "fence %s" ordering
   | _ -> "..." (* TODO: Add remaining instruction pretty printing *)
 
 let string_of_terminator = function

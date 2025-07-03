@@ -119,6 +119,19 @@ let rename_instruction (state: rename_state) (inst: I.instruction) : I.instructi
       I.Phi (List.map (fun (v, label) -> (rename_value v, label)) operands)
     
     | I.Const _ as c -> c
+    
+    | I.Freeze v -> I.Freeze (rename_value v)
+    
+    | I.ExtractValue (agg, indices) ->
+      I.ExtractValue (rename_value agg, indices)
+    
+    | I.InsertValue (agg, v, indices) ->
+      I.InsertValue (rename_value agg, rename_value v, indices)
+    
+    | I.VaArg (va_list, ty) ->
+      I.VaArg (rename_value va_list, ty)
+    
+    | I.Fence ordering -> I.Fence ordering
   in
   
   (* Create new result if needed *)

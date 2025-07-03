@@ -33,3 +33,9 @@
  (package compilerkit-test)
  (modes byte)
  (libraries compilerkit_common compilerkit_pir compilerkit_backend))
+
+(test
+ (name test_pir_extended)
+ (package compilerkit-test)
+ (modes byte)
+ (libraries compilerkit_common compilerkit_pir))
