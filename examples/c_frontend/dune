@@ -1,7 +1,7 @@
 (library
  (name c_frontend)
  (libraries unix)
- (modules preprocessor lexer ast parser))
+ (modules preprocessor lexer ast symbol_table parser))
 
 (executable
  (name test_preprocessor)
@@ -103,6 +103,60 @@
  (name test_parse_all)
  (libraries c_frontend)
  (modules test_parse_all)
+ (modes byte))
+
+(executable
+ (name test_typedef)
+ (libraries c_frontend)
+ (modules test_typedef)
+ (modes byte))
+
+(executable
+ (name test_typedef_debug)
+ (libraries c_frontend)
+ (modules test_typedef_debug)
+ (modes byte))
+
+(executable
+ (name test_typedef_full)
+ (libraries c_frontend)
+ (modules test_typedef_full)
+ (modes byte))
+
+(executable
+ (name test_tokenpos)
+ (libraries c_frontend)
+ (modules test_tokenpos)
+ (modes byte))
+
+(executable
+ (name test_typedef_trace)
+ (libraries c_frontend)
+ (modules test_typedef_trace)
+ (modes byte))
+
+(executable
+ (name test_typedef_func)
+ (libraries c_frontend)
+ (modules test_typedef_func)
+ (modes byte))
+
+(executable
+ (name test_typedef_scope)
+ (libraries c_frontend)
+ (modules test_typedef_scope)
+ (modes byte))
+
+(executable
+ (name test_typedef_ast)
+ (libraries c_frontend)
+ (modules test_typedef_ast)
+ (modes byte))
+
+(executable
+ (name test_external_decl)
+ (libraries c_frontend)
+ (modules test_external_decl)
  (modes byte))
 
 (rule

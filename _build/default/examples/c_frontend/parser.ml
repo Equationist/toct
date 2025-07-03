@@ -11,11 +11,12 @@ open Lexer
 type parser_state = {
   tokens: located_token array;
   mutable pos: int;
+  symbol_table: Symbol_table.t;
 }
 
 (** Create parser state from token list *)
 let create_parser tokens =
-  { tokens = Array.of_list tokens; pos = 0 }
+  { tokens = Array.of_list tokens; pos = 0; symbol_table = Symbol_table.create () }
 
 (** Peek at current token *)
 let peek state =
@@ -86,9 +87,8 @@ let abstract_declarator_ref : (parser_state -> declarator) ref = ref (fun _ -> a
 let parse_abstract_declarator state = !abstract_declarator_ref state
 
 (** Check if name is a typedef *)
-let is_typedef_name _name =
-  (* TODO: Maintain symbol table to track typedef names *)
-  false
+let is_typedef_name state name =
+  Symbol_table.is_typedef state.symbol_table name
 
 (** Parse storage class specifier *)
 let parse_storage_class state =
@@ -225,7 +225,7 @@ let parse_type_specifier state =
   | Struct -> Some (parse_struct_or_union state)
   | Union -> Some (parse_struct_or_union state)
   | Enum -> Some (parse_enum state)
-  | Identifier name when is_typedef_name name -> 
+  | Identifier name when is_typedef_name state name -> 
       advance state; Some (TypeName name)
   | _ -> None
 
@@ -588,7 +588,7 @@ and parse_unary_expr state =
   | Ampersand -> advance state; Ast.UnOp (Ast.AddrOf, parse_cast_expr state)
   | Sizeof ->
       advance state;
-      if check state LeftParen && is_type_name (peek_n state 1) then begin
+      if check state LeftParen && is_type_name state (peek_n state 1) then begin
         advance state;  (* Skip ( *)
         let (specs, quals) = parse_type_specs state in
         let decl = 
@@ -603,16 +603,16 @@ and parse_unary_expr state =
         Ast.SizeofExpr (parse_unary_expr state)
   | _ -> parse_postfix_expr state
 
-and is_type_name tok =
+and is_type_name state tok =
   match tok.token with
   | Void | Char | Short | Int | Long | Float | Double
   | Signed | Unsigned | Struct | Union | Enum | Const | Volatile -> true
-  | Identifier name -> is_typedef_name name
+  | Identifier name -> is_typedef_name state name
   | _ -> false
 
 (** Parse cast expression *)
 and parse_cast_expr state =
-  if check state LeftParen && is_type_name (peek_n state 1) then begin
+  if check state LeftParen && is_type_name state (peek_n state 1) then begin
     advance state;  (* Skip ( *)
     let (specs, quals) = parse_type_specs state in
     let decl = 
@@ -741,7 +741,7 @@ and is_declaration_start state =
   | Void | Char | Short | Int | Long | Float | Double
   | Signed | Unsigned | Struct | Union | Enum
   | Const | Volatile -> true
-  | Identifier name -> is_typedef_name name
+  | Identifier name -> is_typedef_name state name
   | _ -> false
 
 (** Parse selection statement *)
@@ -891,6 +891,16 @@ let parse_decl_impl state =
     (* Parse declarators *)
     let rec parse_init_decls () =
       let decl = parse_declarator state in
+      
+      (* Register typedef name immediately after parsing declarator *)
+      if List.mem Ast.Typedef storage then begin
+        match decl with
+        | Ast.DirectDecl (Ast.Ident name) 
+        | Ast.PointerDecl (_, Ast.DirectDecl (Ast.Ident name)) ->
+            Symbol_table.add_typedef state.symbol_table name
+        | _ -> ()
+      end;
+      
       let init =
         if consume state Equal then
           Some (parse_initializer state)
@@ -906,7 +916,8 @@ let parse_decl_impl state =
     expect state Semicolon;
   end;
   
-  { Ast.storage; Ast.specs; Ast.quals; Ast.init_decls = List.rev !init_decls }
+  let declaration = { Ast.storage; Ast.specs; Ast.quals; Ast.init_decls = List.rev !init_decls } in
+  declaration
 
 (** Parse function definition *)
 let parse_function_def state storage specs quals declarator =
@@ -969,12 +980,56 @@ let parse_external_decl state =
         if is_func_def then
           Ast.FuncDef (parse_function_def state storage specs quals decl)
         else begin
-          (* Backtrack and parse as declaration *)
-          state.pos <- saved_pos;
-          Ast.Decl (parse_decl state)
+          (* Not a function definition, parse rest as declaration *)
+          (* Register typedef if needed *)
+          if List.mem Ast.Typedef storage then begin
+            match decl with
+            | Ast.DirectDecl (Ast.Ident name) 
+            | Ast.PointerDecl (_, Ast.DirectDecl (Ast.Ident name)) ->
+                Symbol_table.add_typedef state.symbol_table name
+            | _ -> ()
+          end;
+          
+          (* Parse initializer if present *)
+          let init =
+            if consume state Equal then
+              Some (parse_initializer state)
+            else
+              None
+          in
+          
+          let init_decls = [{ Ast.decl; Ast.init }] in
+          
+          (* Parse additional declarators if comma-separated *)
+          let rec parse_more_decls acc =
+            if consume state Comma then
+              let decl = parse_declarator state in
+              (* Register typedef for this declarator too *)
+              if List.mem Ast.Typedef storage then begin
+                match decl with
+                | Ast.DirectDecl (Ast.Ident name) 
+                | Ast.PointerDecl (_, Ast.DirectDecl (Ast.Ident name)) ->
+                    Symbol_table.add_typedef state.symbol_table name
+                | _ -> ()
+              end;
+              let init =
+                if consume state Equal then
+                  Some (parse_initializer state)
+                else
+                  None
+              in
+              parse_more_decls ({ Ast.decl; Ast.init } :: acc)
+            else
+              acc
+          in
+          
+          let all_init_decls = parse_more_decls init_decls in
+          expect state Semicolon;
+          
+          Ast.Decl { Ast.storage; Ast.specs; Ast.quals; Ast.init_decls = List.rev all_init_decls }
         end
     | None ->
-        (* Backtrack and parse as declaration *)
+        (* No declarator, just parse rest as declaration *)
         state.pos <- saved_pos;
         Ast.Decl (parse_decl state)
   end else

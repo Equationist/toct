@@ -1,2 +1,3 @@
 c_frontend__Ast
 c_frontend__Lexer
+c_frontend__Symbol_table

@@ -11,3 +11,6 @@ module Parser = C_frontend__Parser
 
 (** @canonical C_frontend.Preprocessor *)
 module Preprocessor = C_frontend__Preprocessor
+
+(** @canonical C_frontend.Symbol_table *)
+module Symbol_table = C_frontend__Symbol_table
