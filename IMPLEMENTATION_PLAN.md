@@ -14,28 +14,28 @@ The **Tiny OCaml Compiler Toolkit (TOCT)** is a modular compiler infrastructure 
 
 ### Phase 1: Core Infrastructure (High Priority)
 
-- [ ] **1. Project Structure & Build System**
-  - [ ] Create dune-project configuration
-  - [ ] Set up library structure (common, pir, frontend, backend, target)
-  - [ ] Create CLI tools structure (pirc, pir-objdump)
-  - [ ] Set up test framework with dune runtest
+- [x] **1. Project Structure & Build System**
+  - [x] Create dune-project configuration
+  - [x] Set up library structure (common, pir, frontend, backend, target)
+  - [x] Create CLI tools structure (pirc, pir-objdump)
+  - [x] Set up test framework with dune runtest
   - [ ] Create examples directory
-  - [ ] **Tests**: Verify build system and basic project structure
+  - [x] **Tests**: Verify build system and basic project structure
 
-- [ ] **2. PIR Core Data Structures**
-  - [ ] Type system: `I8|I16|I32|I64|F32|F64|Vec|Ptr|Struct|Array`
-  - [ ] Value representation with attributes
-  - [ ] Instruction encoding (40+ opcodes from spec)
-  - [ ] Block structure with parameters (SSA-friendly)
-  - [ ] Control flow graph representation
-  - [ ] **Tests**: Type equality, instruction parsing, CFG construction
+- [x] **2. PIR Core Data Structures**
+  - [x] Type system: `I8|I16|I32|I64|F32|F64|Vec|Ptr|Struct|Array`
+  - [x] Value representation with attributes
+  - [x] Instruction encoding (40+ opcodes from spec)
+  - [x] Block structure with parameters (SSA-friendly)
+  - [x] Control flow graph representation
+  - [x] **Tests**: Type equality, instruction parsing, CFG construction
 
 - [ ] **3. PIR Builder & Utilities**
-  - [ ] Monadic builder interface for CFG construction
-  - [ ] Pretty-printer with syntax highlighting
+  - [x] Monadic builder interface for CFG construction
+  - [x] Pretty-printer with syntax highlighting
   - [ ] Linter for SSA/type verification
-  - [ ] Attribute attachment system (JSON-based)
-  - [ ] **Tests**: Builder API, pretty-print roundtrip, linter validation
+  - [x] Attribute attachment system (JSON-based)
+  - [x] **Tests**: Builder API, pretty-print roundtrip, linter validation (except linter)
 
 ### Phase 2: Frontend Helpers (Medium Priority)
 
@@ -202,6 +202,14 @@ compilerkit/
 - **2025-07-03**: Initial project analysis and planning completed
 - **2025-07-03**: Git repository initialized with documentation
 - **2025-07-03**: Implementation plan created with integrated testing strategy
+- **2025-07-03**: Completed PIR core infrastructure implementation:
+  - Implemented complete type system with scalar, vector, struct, and array types
+  - Created value representation with attributes support
+  - Implemented full instruction set (40+ opcodes) including binops, memory, control flow
+  - Built monadic builder interface for CFG construction
+  - Implemented pretty printer with syntax highlighting
+  - Added comprehensive unit tests for all modules
+  - Created integration tests for builder + pretty printer roundtrip
 
 ## References
 

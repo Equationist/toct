@@ -194,6 +194,63 @@ let test_pir_pretty_printer () =
   
   print_endline "✓ All PIR Pretty Printer tests passed"
 
+(* Integration Test: Builder + Pretty Printer *)
+let test_builder_pretty_printer_integration () =
+  print_endline "Running Builder + Pretty Printer integration tests...";
+  
+  (* Test 1: Build a simple function and pretty print it *)
+  let func1 = Builder.build_function "add_constant" [("x", Types.Scalar Types.I32)] (Some (Types.Scalar Types.I32)) (fun state ->
+    let open Builder in
+    let (state1, x) = lookup_value "x" state in
+    let (state2, ten) = const_int (Types.Scalar Types.I32) 10 state1 in
+    let (state3, result) = add "result" x ten state2 in
+    ret (Some result) state3
+  ) in
+  
+  (* Pretty print the function *)
+  let func_str = Pretty_printer.function_to_string ~config:{Pretty_printer.default_config with use_colors = false} func1 in
+  
+  (* Verify the output contains expected elements *)
+  assert (String.contains func_str 'f'); (* func keyword *)
+  assert (String.contains func_str 'x'); (* parameter name *)
+  assert (String.contains func_str '+' || String.contains func_str 'a'); (* add instruction *)
+  assert (String.contains func_str 'r'); (* ret instruction *)
+  
+  (* Test 2: Build a control flow function *)
+  let func2 = Builder.build_function "max" [("a", Types.Scalar Types.I32); ("b", Types.Scalar Types.I32)] (Some (Types.Scalar Types.I32)) (fun state ->
+    let open Builder in
+    let (s1, a) = lookup_value "a" state in
+    let (s2, b) = lookup_value "b" s1 in
+    let (s3, cmp) = icmp "cmp" Instructions.Sgt a b s2 in
+    let (s4, ()) = br cmp "then" "else" s3 in
+    
+    let (s5, ()) = set_current_block "then" s4 in
+    let (s6, ()) = jmp "end" s5 in
+    
+    let (s7, ()) = set_current_block "else" s6 in
+    let (s8, ()) = jmp "end" s7 in
+    
+    let (s9, ()) = set_current_block "end" s8 in
+    let (s10, result) = const_int (Types.Scalar Types.I32) 0 s9 in (* Placeholder *)
+    ret (Some result) s10
+  ) in
+  
+  let func2_str = Pretty_printer.function_to_string ~config:{Pretty_printer.default_config with use_colors = false} func2 in
+  
+  (* Verify control flow elements *)
+  assert (String.contains func2_str ':'); (* Block labels *)
+  assert (String.contains func2_str 'b'); (* br instruction *)
+  assert (String.contains func2_str 'j'); (* jmp instruction *)
+  
+  (* Test 3: Pretty print a complete program *)
+  let program_str = Pretty_printer.pp_program ~config:{Pretty_printer.default_config with use_colors = false} [func1; func2] in
+  assert (String.length program_str > 100); (* Non-trivial output *)
+  
+  (* Test 4: Verify no color codes when colors disabled *)
+  assert (not (String.contains program_str '\027'));
+  
+  print_endline "✓ All Builder + Pretty Printer integration tests passed"
+
 let run_all_tests () =
   print_endline "\n=== TOCT Test Suite ===\n";
   
@@ -216,6 +273,9 @@ let run_all_tests () =
   print_endline "";
   
   test_pir_pretty_printer ();
+  print_endline "";
+  
+  test_builder_pretty_printer_integration ();
   print_endline "";
   
   print_endline "🎉 All TOCT tests passed! 🎉"

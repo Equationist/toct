@@ -13,7 +13,7 @@
 #  ; build_dir = In_build_dir "default"
 #  ; instrument_with = []
 #  }
-$ /Users/ummonkarpe/.opam/4.14.2/bin/ocamlc.opt -config > /var/folders/7_/zrr90vd15tj2szg8rtjyqtzh0000gn/T/dune_e9225f_output
+$ /Users/ummonkarpe/.opam/4.14.2/bin/ocamlc.opt -config > /var/folders/7_/zrr90vd15tj2szg8rtjyqtzh0000gn/T/dune_317219_output
 $ (cd _build/default && /Users/ummonkarpe/.opam/4.14.2/bin/ocamldep.opt -modules -impl test/test_runner_simple.ml) > _build/default/test/.test_runner_simple.eobjs/dune__exe__Test_runner_simple.impl.d
 $ (cd _build/default && /Users/ummonkarpe/.opam/4.14.2/bin/ocamlc.opt -w @1..3@5..28@31..39@43@46..47@49..57@61..62@67@69-40 -strict-sequence -strict-formats -short-paths -keep-locs -g -bin-annot -I test/.test_runner_simple.eobjs/byte -I lib/backend/.compilerkit_backend.objs/byte -I lib/common/.compilerkit_common.objs/byte -I lib/frontend/.compilerkit_frontend.objs/byte -I lib/pir/.compilerkit_pir.objs/byte -I lib/target/.compilerkit_target.objs/byte -intf-suffix .ml -no-alias-deps -opaque -open Dune__exe -o test/.test_runner_simple.eobjs/byte/dune__exe__Test_runner_simple.cmo -c -impl test/test_runner_simple.ml)
 $ (cd _build/default && /Users/ummonkarpe/.opam/4.14.2/bin/ocamlc.opt -w @1..3@5..28@31..39@43@46..47@49..57@61..62@67@69-40 -strict-sequence -strict-formats -short-paths -keep-locs -g -o test/test_runner_simple.bc lib/common/compilerkit_common.cma lib/pir/compilerkit_pir.cma lib/frontend/compilerkit_frontend.cma lib/backend/compilerkit_backend.cma lib/target/compilerkit_target.cma test/.test_runner_simple.eobjs/byte/dune__exe.cmo test/.test_runner_simple.eobjs/byte/dune__exe__Test_runner_simple.cmo)
@@ -40,5 +40,8 @@ $ (cd _build/default/test && ./test_runner_simple.bc)
 >
 > Running PIR Pretty Printer tests...
 > ✓ All PIR Pretty Printer tests passed
+>
+> Running Builder + Pretty Printer integration tests...
+> ✓ All Builder + Pretty Printer integration tests passed
 >
 > 🎉 All TOCT tests passed! 🎉
