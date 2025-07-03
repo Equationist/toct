@@ -138,14 +138,14 @@ The **Tiny OCaml Compiler Toolkit (TOCT)** is a modular compiler infrastructure 
 - [ ] **13. Example C89 Frontend** (IN PROGRESS)
   - [x] Preprocessor integration with macro expansion and conditionals
   - [x] C89 lexer with all tokens and keywords
-  - [x] C89 parser with recursive descent (35/51 tests passing)
+  - [x] C89 parser with recursive descent (42/51 tests passing)
   - [x] Complete AST structure for C89
-  - [ ] Abstract declarators for casts and sizeof
-  - [ ] String literal concatenation
-  - [ ] Symbol table with typedef tracking
+  - [x] Abstract declarators for casts and sizeof
+  - [x] String literal concatenation
+  - [x] Symbol table with typedef tracking
   - [ ] AST to PIR translation
   - [ ] Basic C type system and semantic analysis
-  - [ ] **Tests**: 35/51 parser tests passing, all preprocessor tests passing
+  - [ ] **Tests**: 42/51 parser tests passing, all preprocessor tests passing
 
 ### Phase 5: End-to-End Testing & Validation
 
@@ -291,8 +291,11 @@ compilerkit/
   - Created C89 lexer supporting all keywords, operators, and literal types
   - Built recursive descent parser following C89 grammar specification
   - Designed comprehensive AST structure for C89 language constructs
-  - Parser successfully handles 35 out of 51 test files
-  - Remaining issues: abstract declarators, string concatenation, typedef tracking
+  - Parser successfully handles 42 out of 51 test files (up from 35)
+  - Implemented abstract declarators for type names in casts and sizeof
+  - Added string literal concatenation support in lexer
+  - Implemented typedef name tracking with symbol table
+  - Remaining issues: nested struct initializers, preprocessor directives in parser, variadic macros
   - All preprocessor tests passing (4/4 specific preprocessor tests)
 
 ## References
