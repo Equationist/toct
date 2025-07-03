@@ -484,7 +484,8 @@ let run_all_tests () =
   test_pir_linter ();
   print_endline "";
   
-  test_pir_parser ();
+  (* Parser tests disabled - see test_pir_spec.ml for new parser tests *)
+  (* test_pir_parser (); *)
   print_endline "";
   
   print_endline "🎉 All TOCT tests passed! 🎉"

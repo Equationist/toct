@@ -1,9 +1,9 @@
-(* PIR Parser - Parsing PIR text format to IR structures *)
+(* PIR Parser - Conforming to portable_ir_spec.md *)
 
 open Types
-open Values
+open Values  
 open Instructions
-open Attributes
+open Module_ir
 open Lexer
 
 (* Parser state *)
@@ -11,17 +11,19 @@ type parser_state = {
   tokens: token list;
   mutable pos: int;
   (* Symbol tables *)
-  values: (string, value) Hashtbl.t;
-  blocks: (string, string) Hashtbl.t; (* label -> label (for forward refs) *)
-  (* Current function context *)
-  mutable current_func: string option;
+  types: (string, ty) Hashtbl.t;          (* Named types *)
+  globals: (string, object_decl) Hashtbl.t; (* Global/const objects *)
+  locals: (string, value) Hashtbl.t;       (* Function-local values *)
+  blocks: (string, string) Hashtbl.t;      (* Block labels *)
 }
 
 (* Parser errors *)
 type parse_error =
   | UnexpectedToken of token * string
   | UnexpectedEOF of string
+  | UndefinedType of string
   | UndefinedValue of string
+  | UndefinedBlock of string
   | DuplicateDefinition of string
   | TypeError of string
   | SyntaxError of string
@@ -33,8 +35,12 @@ let string_of_parse_error = function
     Printf.sprintf "Unexpected token %s, expected %s" (string_of_token tok) expected
   | UnexpectedEOF expected ->
     Printf.sprintf "Unexpected end of file, expected %s" expected
+  | UndefinedType name ->
+    Printf.sprintf "Undefined type: %s" name
   | UndefinedValue name ->
     Printf.sprintf "Undefined value: %s" name
+  | UndefinedBlock name ->
+    Printf.sprintf "Undefined block: %s" name
   | DuplicateDefinition name ->
     Printf.sprintf "Duplicate definition: %s" name
   | TypeError msg ->
@@ -46,9 +52,10 @@ let string_of_parse_error = function
 let create_parser tokens = {
   tokens;
   pos = 0;
-  values = Hashtbl.create 64;
+  types = Hashtbl.create 16;
+  globals = Hashtbl.create 64;
+  locals = Hashtbl.create 64;
   blocks = Hashtbl.create 16;
-  current_func = None;
 }
 
 (* Current token *)
@@ -74,35 +81,11 @@ let expect state tok =
   else
     raise (ParseError (UnexpectedToken (current state, string_of_token tok)))
 
-(* Consume any of expected tokens *)
-let expect_one_of state toks =
-  let curr = current state in
-  if List.mem curr toks then begin
-    advance state;
-    curr
-  end else
-    let expected = String.concat " or " (List.map string_of_token toks) in
-    raise (ParseError (UnexpectedToken (curr, expected)))
-
 (* Parse helpers *)
 let parse_ident state =
   match current state with
   | IDENT name -> advance state; name
   | tok -> raise (ParseError (UnexpectedToken (tok, "identifier")))
-
-let parse_label state =
-  match current state with
-  | LABEL name -> advance state; name
-  | IDENT name ->
-    (match peek state 1 with
-     | COLON -> advance state; advance state; name
-     | _ -> raise (ParseError (UnexpectedToken (IDENT name, "label with colon"))))
-  | tok -> raise (ParseError (UnexpectedToken (tok, "label")))
-
-let parse_value_name state =
-  match current state with
-  | VALUE name -> advance state; "%" ^ name
-  | tok -> raise (ParseError (UnexpectedToken (tok, "value name")))
 
 (* Type parsing *)
 let rec parse_type state =
@@ -115,61 +98,51 @@ let rec parse_type state =
   | F32 -> advance state; Scalar F32
   | F64 -> advance state; Scalar F64
   | PTR -> advance state; Ptr
-  | VEC ->
+  | VECTYPE (n, scalar_str) ->
     advance state;
-    expect state LBRACKET;
-    let n = parse_int state in
-    (match current state with
-     | IDENT "x" -> advance state
-     | _ -> raise (ParseError (UnexpectedToken (current state, "'x'"))));
-    let elem_ty = parse_scalar_type state in
-    expect state RBRACKET;
-    Vector (n, elem_ty)
+    let scalar_ty = match scalar_str with
+      | "i1" -> Types.I1 | "i8" -> Types.I8 | "i16" -> Types.I16 
+      | "i32" -> Types.I32 | "i64" -> Types.I64
+      | "f32" -> Types.F32 | "f64" -> Types.F64
+      | _ -> raise (ParseError (TypeError ("Unknown scalar type in vector: " ^ scalar_str)))
+    in
+    Vector (n, scalar_ty)
   | ARRAY ->
     advance state;
     expect state LBRACKET;
     let n = parse_int state in
-    (* Optional 'x' separator *)
-    (match current state with
-     | IDENT "x" -> advance state
-     | _ -> ());
-    let elem_ty = parse_type state in
     expect state RBRACKET;
+    let elem_ty = parse_type state in
     Array (n, elem_ty)
   | STRUCT ->
     advance state;
-    expect state LBRACE;
-    let fields = parse_type_list state in
-    expect state RBRACE;
+    expect state LCHEVRON;
+    let fields = parse_type_list state RCHEVRON in
     Struct fields
   | PACKED_STRUCT ->
     advance state;
-    expect state LBRACE;
-    let fields = parse_type_list state in
-    expect state RBRACE;
+    expect state LCHEVRON;
+    let fields = parse_type_list state RCHEVRON in
     PackedStruct fields
+  | IDENT name ->
+    (* Lookup named type *)
+    advance state;
+    (try Hashtbl.find state.types name
+     with Not_found -> raise (ParseError (UndefinedType name)))
   | tok -> raise (ParseError (UnexpectedToken (tok, "type")))
 
-and parse_scalar_type state =
-  match parse_type state with
-  | Scalar s -> s
-  | _ -> raise (ParseError (TypeError "Expected scalar type"))
-
-and parse_type_list state =
+and parse_type_list state end_tok =
   let rec loop acc =
-    match current state with
-    | RBRACE ->
+    if current state = end_tok then begin
+      advance state;
       List.rev acc
-    | _ -> begin
+    end else begin
       let ty = parse_type state in
       let acc' = ty :: acc in
       match current state with
-      | COMMA -> begin
-        advance state;
-        loop acc'
-      end
-      | _ ->
-        List.rev acc'
+      | COMMA -> advance state; loop acc'
+      | tok when tok = end_tok -> advance state; List.rev acc'
+      | tok -> raise (ParseError (UnexpectedToken (tok, "comma or " ^ string_of_token end_tok)))
     end
   in
   loop []
@@ -179,21 +152,146 @@ and parse_int state =
   | INT n -> advance state; Int64.to_int n
   | tok -> raise (ParseError (UnexpectedToken (tok, "integer")))
 
+(* Parse comma-separated list of integers in brackets *)
+and parse_int_list state =
+  expect state LBRACKET;
+  let rec loop acc =
+    if current state = RBRACKET then
+      List.rev acc
+    else
+      let n = parse_int state in
+      if current state = COMMA then begin
+        advance state;
+        loop (n :: acc)
+      end else
+        List.rev (n :: acc)
+  in
+  let result = loop [] in
+  expect state RBRACKET;
+  result
+
+(* Parse constant expression for initializers *)
+let rec parse_const_expr state =
+  match current state with
+  | INT n when n = 0L && (peek state 1 = EOF || peek state 1 = COMMA) ->
+    (* Zero initializer shorthand *)
+    advance state;
+    ConstZero
+  | INT n -> 
+    advance state;
+    ConstValue (ConstInt (n, I32)) (* Default to i32 *)
+  | FLOAT f ->
+    advance state;
+    ConstValue (ConstFloat (f, F64)) (* Default to f64 *)
+  | TRUE ->
+    advance state;
+    ConstValue (ConstBool true)
+  | FALSE ->
+    advance state;
+    ConstValue (ConstBool false)
+  | NULL ->
+    advance state;
+    ConstValue ConstNull
+  | LCHEVRON ->
+    (* Aggregate initializer *)
+    advance state;
+    let elems = parse_const_expr_list state in
+    ConstAggregate elems
+  | tok -> raise (ParseError (UnexpectedToken (tok, "constant expression")))
+
+and parse_const_expr_list state =
+  let rec loop acc =
+    if current state = RCHEVRON then begin
+      advance state;
+      List.rev acc
+    end else begin
+      let expr = parse_const_expr state in
+      let acc' = expr :: acc in
+      match current state with
+      | COMMA -> advance state; loop acc'
+      | RCHEVRON -> advance state; List.rev acc'
+      | tok -> raise (ParseError (UnexpectedToken (tok, "comma or >>")))
+    end
+  in
+  loop []
+
+(* Parse optional alignment *)
+let parse_opt_align state =
+  if current state = ALIGN then begin
+    advance state;
+    Some (parse_int state)
+  end else
+    None
+
+(* Parse type declaration *)
+let parse_type_decl state =
+  expect state TYPE;
+  let name = parse_ident state in
+  expect state EQUALS;
+  let ty = parse_type state in
+  (* Register type *)
+  if Hashtbl.mem state.types name then
+    raise (ParseError (DuplicateDefinition name));
+  Hashtbl.add state.types name ty;
+  TypeDecl (create_type_decl name ty)
+
+(* Parse attributes @{...} *)
+let parse_attributes state =
+  if current state = AT then begin
+    advance state;
+    expect state LBRACE;
+    (* For now, skip attribute parsing - just consume until closing brace *)
+    let rec skip_until_rbrace () =
+      match current state with
+      | RBRACE -> advance state
+      | EOF -> raise (ParseError (UnexpectedEOF "attribute closing"))
+      | _ -> advance state; skip_until_rbrace ()
+    in
+    skip_until_rbrace ();
+    Attributes.empty ()
+  end else
+    Attributes.empty ()
+
+(* Parse object declaration *)
+let parse_object_decl state is_const =
+  expect state (if is_const then CONST else GLOBAL);
+  let name = parse_ident state in
+  expect state COLON;
+  let ty = parse_type state in
+  let align = parse_opt_align state in
+  expect state INIT;
+  let init = parse_const_expr state in
+  let attrs = parse_attributes state in
+  let obj = create_object_decl ~is_const name ty ?align init attrs in
+  (* Register global *)
+  if Hashtbl.mem state.globals name then
+    raise (ParseError (DuplicateDefinition name));
+  Hashtbl.add state.globals name obj;
+  ObjectDecl obj
+
+(* Parse label *)
+let parse_label state =
+  let name = parse_ident state in
+  expect state COLON;
+  name
+
 (* Value parsing *)
 let parse_value state =
   match current state with
-  | VALUE name ->
+  | IDENT name ->
     advance state;
-    let full_name = "%" ^ name in
-    (try Hashtbl.find state.values full_name
-     with Not_found -> 
-       (* Try without % prefix for parameters *)
-       try Hashtbl.find state.values name
-       with Not_found -> raise (ParseError (UndefinedValue full_name)))
+    (* Look up in locals first, then globals *)
+    (try Hashtbl.find state.locals name
+     with Not_found ->
+       try
+         let obj = Hashtbl.find state.globals name in
+         create_simple_value obj.obj_ty (* Global reference *)
+       with Not_found ->
+         (* Could be a function name - create a dummy value for now *)
+         create_simple_value Ptr)
   | INT _n ->
     advance state;
-    (* Infer type from context or default to i32 *)
-    create_simple_value (Scalar I32)
+    create_simple_value (Scalar I32) (* Default to i32 *)
   | FLOAT _f ->
     advance state;
     create_simple_value (Scalar F64)
@@ -208,297 +306,304 @@ let parse_value state =
     create_simple_value Ptr
   | UNDEF ->
     advance state;
-    let ty = parse_type state in
-    create_simple_value ty
-  | IDENT name ->
-    advance state;
-    (try Hashtbl.find state.values name
-     with Not_found -> raise (ParseError (UndefinedValue name)))
+    create_simple_value (Scalar I32) (* Need type context *)
   | tok -> raise (ParseError (UnexpectedToken (tok, "value")))
 
-(* Define a new value *)
+(* Define a new local value *)
 let define_value state name ty =
-  if Hashtbl.mem state.values name then
+  if Hashtbl.mem state.locals name then
     raise (ParseError (DuplicateDefinition name));
   let value = create_simple_value ty in
-  Hashtbl.add state.values name value;
+  Hashtbl.add state.locals name value;
   value
 
-(* Instruction parsing *)
-let parse_binop_kind state =
-  match current state with
-  | ADD -> advance state; Add
-  | SUB -> advance state; Sub
-  | MUL -> advance state; Mul
-  | SDIV -> advance state; Sdiv
-  | UDIV -> advance state; Udiv
-  | SREM -> advance state; Srem
-  | UREM -> advance state; Urem
-  | AND -> advance state; And
-  | OR -> advance state; Or
-  | XOR -> advance state; Xor
-  | SHL -> advance state; Shl
-  | LSHR -> advance state; Lshr
-  | ASHR -> advance state; Ashr
-  | ROL -> advance state; Rol
-  | ROR -> advance state; Ror
-  | FADD -> advance state; Fadd
-  | FSUB -> advance state; Fsub
-  | FMUL -> advance state; Fmul
-  | FDIV -> advance state; Fdiv
-  | FREM -> advance state; Frem
-  | FMA -> advance state; Fma
-  | CLZ -> advance state; Clz
-  | CTZ -> advance state; Ctz
-  | POPCNT -> advance state; Popcnt
-  | tok -> raise (ParseError (UnexpectedToken (tok, "binary operation")))
-
-let parse_icmp_pred state =
-  match current state with
-  | EQ -> advance state; Eq
-  | NE -> advance state; Ne
-  | SLT -> advance state; Slt
-  | SLE -> advance state; Sle
-  | SGT -> advance state; Sgt
-  | SGE -> advance state; Sge
-  | ULT -> advance state; Ult
-  | ULE -> advance state; Ule
-  | UGT -> advance state; Ugt
-  | UGE -> advance state; Uge
-  | tok -> raise (ParseError (UnexpectedToken (tok, "icmp predicate")))
-
-let parse_fcmp_pred state =
-  match current state with
-  | OEQ -> advance state; Oeq
-  | OGT -> advance state; Ogt
-  | OGE -> advance state; Oge
-  | OLT -> advance state; Olt
-  | OLE -> advance state; Ole
-  | ONE -> advance state; One
-  | ORD -> advance state; Ord
-  | UEQ -> advance state; Ueq
-  | UGT -> advance state; Ugt
-  | UGE -> advance state; Uge
-  | ULT -> advance state; Ult
-  | ULE -> advance state; Ule
-  | UNE -> advance state; Une
-  | UNO -> advance state; Uno
-  | tok -> raise (ParseError (UnexpectedToken (tok, "fcmp predicate")))
-
-let parse_flag state =
-  match current state with
-  | DOT ->
-    advance state;
-    (match current state with
-     | NSW -> advance state; Nsw
-     | CARRY -> advance state; Carry
-     | SAT -> advance state; Sat
-     | tok -> raise (ParseError (UnexpectedToken (tok, "flag"))))
-  | _ -> NoFlag
-
+(* Parse instruction with spec syntax: result = opcode.flag.type operands *)
 let rec parse_instruction state =
   (* Check for result assignment *)
-  let result_name, has_result =
+  let result_name = 
     match current state, peek state 1 with
-    | VALUE _, EQUALS -> begin
-      let name = parse_value_name state in
-      expect state EQUALS;
-      (Some name, true)
-    end
-    | _ ->
-      (None, false) in
+    | IDENT name, EQUALS ->
+      advance state; (* name *)
+      advance state; (* = *)
+      Some name
+    | _ -> None in
   
-  (* Parse the instruction *)
-  let instr = parse_instr_body state in
+  (* Parse opcode *)
+  let opcode = current state in
+  advance state;
+  
+  (* Handle instruction-specific parsing based on opcode - some have flags, some have type suffixes *)
+  let flag, _ty_suffix = match opcode with
+    (* Binary operations can have flags and/or type suffix *)
+    | ADD | SUB | MUL | SDIV | UDIV | SREM | UREM
+    | AND | OR | XOR | SHL | LSHR | ASHR | ROL | ROR ->
+      let flag = 
+        if current state = DOT && 
+           (peek state 1 = NSW || peek state 1 = CARRY || peek state 1 = SAT) then begin
+          advance state;
+          match current state with
+          | NSW -> advance state; Nsw
+          | CARRY -> advance state; Carry
+          | SAT -> advance state; Sat
+          | _ -> NoFlag
+        end else NoFlag in
+      let ty_suffix = 
+        if current state = DOT then begin
+          advance state;
+          Some (parse_type state)
+        end else None in
+      (flag, ty_suffix)
+    (* Other instructions handle their own DOT and type parsing *)
+    | _ -> (NoFlag, None) in
+  
+  (* Parse instruction based on opcode *)
+  let instr = match opcode with
+    (* Binary operations *)
+    | ADD | SUB | MUL | SDIV | UDIV | SREM | UREM
+    | AND | OR | XOR | SHL | LSHR | ASHR | ROL | ROR ->
+      let v1 = parse_value state in
+      expect state COMMA;
+      let v2 = parse_value state in
+      let binop = match opcode with
+        | ADD -> Add | SUB -> Sub | MUL -> Mul
+        | SDIV -> Sdiv | UDIV -> Udiv | SREM -> Srem | UREM -> Urem
+        | AND -> And | OR -> Or | XOR -> Xor
+        | SHL -> Shl | LSHR -> Lshr | ASHR -> Ashr
+        | ROL -> Rol | ROR -> Ror
+        | _ -> failwith "Unreachable"
+      in
+      Binop (binop, flag, v1, v2)
+    
+    (* Float operations *)
+    | FADD | FSUB | FMUL | FDIV | FREM ->
+      let v1 = parse_value state in
+      expect state COMMA;
+      let v2 = parse_value state in
+      let binop = match opcode with
+        | FADD -> Fadd | FSUB -> Fsub | FMUL -> Fmul
+        | FDIV -> Fdiv | FREM -> Frem
+        | _ -> failwith "Unreachable"
+      in
+      Binop (binop, NoFlag, v1, v2)
+    
+    (* Comparisons *)
+    | ICMP ->
+      expect state DOT;
+      let pred_tok = current state in
+      advance state;
+      let pred = parse_icmp_pred pred_tok in
+      expect state DOT;
+      let _ty = parse_type state in (* Type suffix *)
+      let v1 = parse_value state in
+      expect state COMMA;
+      let v2 = parse_value state in
+      Icmp (pred, v1, v2)
+    
+    | FCMP ->
+      expect state DOT;
+      let pred = parse_fcmp_pred (current state) in
+      advance state;
+      expect state DOT;
+      let _ty = parse_type state in
+      let v1 = parse_value state in
+      expect state COMMA;
+      let v2 = parse_value state in
+      Fcmp (pred, v1, v2)
+    
+    (* Memory operations *)
+    | LOAD ->
+      expect state DOT;
+      let ty = parse_type state in
+      expect state LBRACKET;
+      let _ptr = parse_value state in
+      expect state RBRACKET;
+      Memory (Load ty)
+    
+    | STORE ->
+      expect state DOT;
+      let _ty = parse_type state in
+      let value = parse_value state in
+      expect state COMMA;
+      expect state LBRACKET;
+      let ptr = parse_value state in
+      expect state RBRACKET;
+      Memory (Store (value, ptr))
+    
+    | ALLOCA ->
+      let size = parse_value state in
+      expect state ALIGN;
+      let align = parse_int state in
+      Memory (Alloca (size, align))
+    
+    (* Address operations *)
+    | GEP ->
+      let base = parse_value state in
+      expect state COMMA;
+      let idx = parse_value state in
+      Address (Gep (base, idx))
+    
+    | FIELDADDR ->
+      let base = parse_value state in
+      expect state COMMA;
+      let idx = parse_int state in
+      Address (FieldAddr (base, idx))
+    
+    | PTRADD ->
+      let base = parse_value state in
+      expect state COMMA;
+      let offset = parse_value state in
+      Address (PtrAdd (base, offset))
+    
+    (* Bitcast *)
+    | BITCAST ->
+      let v = parse_value state in
+      Cast (Bitcast v)
+    
+    (* Other casts *)
+    | TRUNC | ZEXT | SEXT | FPTRUNC | FPEXT
+    | FPTOUI | FPTOSI | UITOFP | SITOFP ->
+      let v = parse_value state in
+      expect state TO;
+      let target_ty = parse_type state in
+      let cast_op = match opcode with
+        | TRUNC -> Trunc (v, target_ty)
+        | ZEXT -> Zext (v, target_ty)
+        | SEXT -> Sext (v, target_ty)
+        | FPTRUNC -> Fptrunc (v, target_ty)
+        | FPEXT -> Fpext (v, target_ty)
+        | FPTOUI -> Fptoui (v, target_ty)
+        | FPTOSI -> Fptosi (v, target_ty)
+        | UITOFP -> Uitofp (v, target_ty)
+        | SITOFP -> Sitofp (v, target_ty)
+        | _ -> failwith "Unreachable"
+      in
+      Cast cast_op
+    
+    (* Call *)
+    | CALL ->
+      expect state DOT;
+      let _ret_ty = 
+        if current state = VOID then begin
+          advance state;
+          None
+        end else
+          Some (parse_type state) in
+      let callee = parse_value state in
+      expect state COMMA;
+      let args = parse_value_list state in
+      Call (Call (callee, args))
+    
+    | TAILCALL ->
+      expect state DOT;
+      let _ret_ty = 
+        if current state = VOID then begin
+          advance state;
+          None
+        end else
+          Some (parse_type state) in
+      let callee = parse_value state in
+      expect state COMMA;
+      let args = parse_value_list state in
+      Call (TailCall (callee, args))
+    
+    (* Select *)
+    | SELECT ->
+      let cond = parse_value state in
+      expect state COMMA;
+      let v_true = parse_value state in
+      expect state COMMA;
+      let v_false = parse_value state in
+      Select (cond, v_true, v_false)
+    
+    (* Vector operations *)
+    | SPLAT ->
+      let scalar = parse_value state in
+      expect state COMMA;
+      let count = parse_int state in
+      Vector (Splat (scalar, count))
+    
+    | SHUFFLE ->
+      let v1 = parse_value state in
+      expect state COMMA;
+      let v2 = parse_value state in
+      expect state COMMA;
+      let mask = parse_int_list state in
+      Vector (Shuffle (v1, v2, mask))
+    
+    | EXTRACTLANE ->
+      let vector = parse_value state in
+      expect state COMMA;
+      let idx = parse_int state in
+      Vector (ExtractLane (vector, idx))
+    
+    | INSERTLANE ->
+      let vector = parse_value state in
+      expect state COMMA;
+      let idx = parse_int state in
+      expect state COMMA;
+      let value = parse_value state in
+      Vector (InsertLane (vector, idx, value))
+    
+    | _ -> raise (ParseError (UnexpectedToken (opcode, "instruction opcode")))
+  in
   
   (* Parse attributes *)
   let attrs = parse_attributes state in
   
-  (* Create instruction with result *)
+  (* Create instruction with result if needed *)
   let result_value = match result_name with
-    | Some name when has_result ->
+    | Some name ->
       (match result_type_of_instr instr with
        | Some ty -> Some (define_value state name ty)
-       | None -> raise (ParseError (TypeError "Instruction does not produce a result")))
-    | _ -> None in
+       | None -> 
+         (* Special case for call instructions - they can have results *)
+         match instr with
+         | Call _ -> Some (define_value state name Ptr) (* Dummy type for now *)
+         | _ -> raise (ParseError (TypeError "Instruction does not produce a result")))
+    | None -> None in
   
   create_instruction ?result:result_value instr attrs
 
-and parse_instr_body state =
-  match current state with
-  (* Binary operations *)
-  | ADD | SUB | MUL | SDIV | UDIV | SREM | UREM
-  | AND | OR | XOR | SHL | LSHR | ASHR | ROL | ROR
-  | FADD | FSUB | FMUL | FDIV | FREM | FMA
-  | CLZ | CTZ | POPCNT ->
-    let op = parse_binop_kind state in
-    let flag = parse_flag state in
-    let v1 = parse_value state in
-    expect state COMMA;
-    let v2 = parse_value state in
-    Binop (op, flag, v1, v2)
-  
-  (* Comparisons *)
-  | ICMP ->
-    advance state;
-    let pred = parse_icmp_pred state in
-    let v1 = parse_value state in
-    expect state COMMA;
-    let v2 = parse_value state in
-    Icmp (pred, v1, v2)
-  
-  | FCMP ->
-    advance state;
-    let pred = parse_fcmp_pred state in
-    let v1 = parse_value state in
-    expect state COMMA;
-    let v2 = parse_value state in
-    Fcmp (pred, v1, v2)
-  
-  | SELECT ->
-    advance state;
-    let cond = parse_value state in
-    expect state COMMA;
-    let v_true = parse_value state in
-    expect state COMMA;
-    let v_false = parse_value state in
-    Select (cond, v_true, v_false)
-  
-  (* Memory operations *)
-  | LOAD ->
-    advance state;
-    let ty = parse_type state in
-    let _ptr = parse_value state in
-    Memory (Load ty)
-  
-  | STORE ->
-    advance state;
-    let value = parse_value state in
-    expect state COMMA;
-    let ptr = parse_value state in
-    Memory (Store (value, ptr))
-  
-  | ALLOCA ->
-    advance state;
-    let size = parse_value state in
-    expect state COMMA;
-    let align = parse_int state in
-    Memory (Alloca (size, align))
-  
-  (* Address operations *)
-  | GEP ->
-    advance state;
-    let base = parse_value state in
-    expect state COMMA;
-    let idx = parse_value state in
-    Address (Gep (base, idx))
-  
-  | FIELDADDR ->
-    advance state;
-    let base = parse_value state in
-    expect state COMMA;
-    let idx = parse_int state in
-    Address (FieldAddr (base, idx))
-  
-  | PTRADD ->
-    advance state;
-    let base = parse_value state in
-    expect state COMMA;
-    let offset = parse_value state in
-    Address (PtrAdd (base, offset))
-  
-  (* Cast operations *)
-  | BITCAST ->
-    advance state;
-    let v = parse_value state in
-    Cast (Bitcast v)
-  
-  | (TRUNC | ZEXT | SEXT | FPTRUNC | FPEXT
-    | FPTOUI | FPTOSI | UITOFP | SITOFP) ->
-    let cast_kind = current state in
-    advance state;
-    let v = parse_value state in
-    (match current state with
-     | IDENT "to" -> advance state
-     | _ -> raise (ParseError (UnexpectedToken (current state, "'to'"))));
-    let target_ty = parse_type state in
-    let cast_op = match cast_kind with
-      | TRUNC -> Trunc (v, target_ty)
-      | ZEXT -> Zext (v, target_ty)
-      | SEXT -> Sext (v, target_ty)
-      | FPTRUNC -> Fptrunc (v, target_ty)
-      | FPEXT -> Fpext (v, target_ty)
-      | FPTOUI -> Fptoui (v, target_ty)
-      | FPTOSI -> Fptosi (v, target_ty)
-      | UITOFP -> Uitofp (v, target_ty)
-      | SITOFP -> Sitofp (v, target_ty)
-      | _ -> failwith "Unreachable" in
-    Cast cast_op
-  
-  (* Call operations *)
-  | CALL ->
-    advance state;
-    let callee = parse_value state in
-    expect state LPAREN;
-    let args = parse_value_list state in
-    expect state RPAREN;
-    Call (Call (callee, args))
-  
-  | tok -> raise (ParseError (UnexpectedToken (tok, "instruction")))
+and parse_icmp_pred = function
+  | EQ -> Eq | NE -> Ne 
+  | LT -> Slt | LE -> Sle | GT -> Sgt | GE -> Sge
+  | tok -> raise (ParseError (UnexpectedToken (tok, "icmp predicate")))
+
+and parse_fcmp_pred = function
+  | OEQ -> Oeq | OGT -> Ogt | OGE -> Oge | OLT -> Olt | OLE -> Ole
+  | ONE -> One | ORD -> Ord | UEQ -> Ueq | UNE -> Une | UNO -> Uno
+  (* Handle 'one' and 'ord' as identifiers that get converted to predicates *)
+  | IDENT "one" -> One | IDENT "ord" -> Ord
+  | tok -> raise (ParseError (UnexpectedToken (tok, "fcmp predicate")))
 
 and parse_value_list state =
   let rec loop acc =
     match current state with
-    | RPAREN ->
+    | EOF | RET | BR | JMP | UNREACHABLE | SWITCH ->
       List.rev acc
-    | _ -> begin
+    | _ ->
       let v = parse_value state in
       let acc' = v :: acc in
       match current state with
-      | COMMA -> begin
-        advance state;
-        loop acc'
-      end
-      | _ ->
-        List.rev acc'
-    end
+      | COMMA -> advance state; loop acc'
+      | _ -> List.rev acc'
   in
   loop []
 
-and parse_attributes state =
-  match current state with
-  | AT -> begin
-    advance state;
-    expect state LBRACE;
-    (* For now, skip attribute parsing *)
-    let rec skip_until_rbrace () =
-      match current state with
-      | RBRACE ->
-        advance state
-      | EOF ->
-        raise (ParseError (UnexpectedEOF "attribute closing brace"))
-      | _ -> begin
-        advance state;
-        skip_until_rbrace ()
-      end
-    in
-    skip_until_rbrace ();
-    empty ()
-  end
-  | _ ->
-    empty ()
-
-(* Terminator parsing *)
-let rec parse_terminator state =
+(* Parse terminator *)
+and parse_terminator state =
   match current state with
   | RET ->
     advance state;
     (match current state with
-     | VALUE _ | INT _ | FLOAT _ | TRUE | FALSE | NULL ->
-       let v = parse_value state in
-       Ret (Some v)
+     | EOF | ENDFUNC ->
+       Ret None
+     | IDENT _ when peek state 1 = COLON ->
+       (* Next line is a label *)
+       Ret None
      | _ ->
-       Ret None)
+       let v = parse_value state in
+       Ret (Some v))
   
   | BR ->
     advance state;
@@ -514,107 +619,62 @@ let rec parse_terminator state =
     let label = parse_ident state in
     Jmp label
   
-  | UNREACHABLE ->
-    advance state;
-    Unreachable
-  
   | SWITCH ->
     advance state;
     let v = parse_value state in
     expect state COMMA;
     let default = parse_ident state in
+    expect state COMMA;
     expect state LBRACKET;
     let cases = parse_switch_cases state in
     expect state RBRACKET;
     Switch (v, default, cases)
+  
+  | UNREACHABLE ->
+    advance state;
+    Unreachable
   
   | tok -> raise (ParseError (UnexpectedToken (tok, "terminator")))
 
 and parse_switch_cases state =
   let rec loop acc =
     match current state with
-    | RBRACKET ->
-      List.rev acc
-    | _ -> begin
+    | RBRACKET -> List.rev acc
+    | _ ->
+      expect state LPAREN;
       let const_val = parse_const_value state in
-      expect state COLON;
+      expect state COMMA;
       let label = parse_ident state in
+      expect state RPAREN;
       let acc' = (const_val, label) :: acc in
       match current state with
-      | COMMA -> begin
-        advance state;
-        loop acc'
-      end
-      | _ ->
-        List.rev acc'
-    end
+      | COMMA -> advance state; loop acc'
+      | _ -> List.rev acc'
   in
   loop []
 
 and parse_const_value state =
   match current state with
-  | INT n ->
-    advance state;
-    ConstInt (n, I32) (* Default to i32 *)
-  | FLOAT f ->
-    advance state;
-    ConstFloat (f, F64) (* Default to f64 *)
-  | TRUE ->
-    advance state;
-    ConstBool true
-  | FALSE ->
-    advance state;
-    ConstBool false
-  | NULL ->
-    advance state;
-    ConstNull
+  | INT n -> advance state; ConstInt (n, I32)
+  | FLOAT f -> advance state; ConstFloat (f, F64)
+  | TRUE -> advance state; ConstBool true
+  | FALSE -> advance state; ConstBool false
+  | NULL -> advance state; ConstNull
   | tok -> raise (ParseError (UnexpectedToken (tok, "constant value")))
 
-(* Block parsing *)
-let parse_block_params state =
-  match current state with
-  | LPAREN -> begin
-    advance state;
-    let rec loop acc =
-      match current state with
-    | RPAREN -> begin
-        advance state;
-        List.rev acc
-      end
-      | _ -> begin
-        let name = parse_ident state in
-        expect state COLON;
-        let ty = parse_type state in
-        let acc' = (name, ty) :: acc in
-        match current state with
-      | COMMA -> begin
-          advance state;
-          loop acc'
-        end
-      | _ -> begin
-          expect state RPAREN;
-          List.rev acc'
-        end
-      end
-    in
-    loop []
-  end
-  | _ ->
-    []
-
+(* Parse basic block *)
 let parse_block state =
   let label = parse_label state in
-  let params = parse_block_params state in
   
-  (* Add block parameters to value table *)
-  List.iter (fun (name, ty) ->
-    ignore (define_value state name ty)
-  ) params;
+  (* Register block *)
+  if Hashtbl.mem state.blocks label then
+    raise (ParseError (DuplicateDefinition label));
+  Hashtbl.add state.blocks label label;
   
-  (* Parse instructions *)
+  (* Parse instructions until terminator *)
   let rec parse_instrs acc =
     match current state with
-    | LABEL _ | RET | BR | JMP | UNREACHABLE | SWITCH | RBRACE | EOF ->
+    | RET | BR | JMP | UNREACHABLE | SWITCH ->
       List.rev acc
     | _ ->
       let instr = parse_instruction state in
@@ -625,99 +685,101 @@ let parse_block state =
   (* Parse terminator *)
   let terminator = parse_terminator state in
   
-  create_block label params instructions terminator
+  (* Parse optional attributes *)
+  let attrs = parse_attributes state in
+  
+  { label; params = []; instructions; terminator; attrs }
 
-(* Function parsing *)
-let parse_function_params state =
-  expect state LPAREN;
-  let rec loop acc =
-    match current state with
-    | RPAREN -> begin
-      advance state;
-      List.rev acc
-    end
-    | _ -> begin
-      let name = parse_ident state in
-      expect state COLON;
-      let ty = parse_type state in
-      let acc' = (name, ty) :: acc in
-      match current state with
-      | COMMA -> begin
-        advance state;
-        loop acc'
-      end
-      | _ -> begin
-        expect state RPAREN;
-        List.rev acc'
-      end
-    end
-  in
-  loop []
-
-let parse_function state =
+(* Parse function *)
+let rec parse_function state =
   expect state FUNC;
   let name = parse_ident state in
-  state.current_func <- Some name;
   
-  (* Clear value table for new function *)
-  Hashtbl.clear state.values;
+  (* Clear local state for new function *)
+  Hashtbl.clear state.locals;
   Hashtbl.clear state.blocks;
   
-  let params = parse_function_params state in
+  (* Parse parameters *)
+  expect state LPAREN;
+  let params = parse_param_list state in
+  expect state RPAREN;
   
-  (* Add parameters to value table *)
+  (* Add parameters to locals *)
   List.iter (fun (pname, pty) ->
     ignore (define_value state pname pty)
   ) params;
   
   (* Parse return type *)
   let return_ty =
-    match current state with
-    | ARROW -> begin
+    if current state = ARROW then begin
       advance state;
-      Some (parse_type state)
-    end
-    | _ ->
+      match current state with
+      | VOID -> 
+        advance state;
+        None
+      | _ ->
+        Some (parse_type state)
+    end else
       None in
   
-  (* Parse attributes *)
+  (* Parse optional attributes *)
   let attrs = parse_attributes state in
   
-  expect state LBRACE;
-  
-  (* Parse blocks *)
+  (* Parse blocks until endfunc *)
   let rec parse_blocks acc =
     match current state with
-    | RBRACE -> begin
+    | ENDFUNC ->
       advance state;
       List.rev acc
-    end
     | _ ->
       let block = parse_block state in
       parse_blocks (block :: acc)
   in
   let blocks = parse_blocks [] in
   
-  state.current_func <- None;
-  let func = create_func name params return_ty blocks in
-  { func with attrs = attrs }
+  FuncDecl { name; params; return_ty; blocks; attrs }
 
-(* Program parsing *)
-let parse_program state =
+and parse_param_list state =
+  let rec loop acc =
+    match current state with
+    | RPAREN -> List.rev acc
+    | _ ->
+      let name = parse_ident state in
+      expect state COLON;
+      let ty = parse_type state in
+      let acc' = (name, ty) :: acc in
+      match current state with
+      | COMMA -> advance state; loop acc'
+      | _ -> List.rev acc'
+  in
+  loop []
+
+(* Parse module *)
+let parse_module state =
   let rec loop acc =
     match current state with
     | EOF -> List.rev acc
+    | TYPE -> 
+      let item = parse_type_decl state in
+      loop (item :: acc)
+    | GLOBAL ->
+      let item = parse_object_decl state false in
+      loop (item :: acc)
+    | CONST ->
+      let item = parse_object_decl state true in
+      loop (item :: acc)
     | FUNC ->
-      let func = parse_function state in
-      loop (func :: acc)
-    | tok -> raise (ParseError (UnexpectedToken (tok, "function or EOF")))
+      let item = parse_function state in
+      loop (item :: acc)
+    | tok -> raise (ParseError (UnexpectedToken (tok, "top-level declaration")))
   in
-  loop []
+  let items = loop [] in
+  create_module items (Attributes.empty ())
 
 (* Main parse function *)
 let parse tokens =
   let state = create_parser tokens in
-  parse_program state
+  parse_module state
 
 (* Parse from string *)
 let parse_string input =

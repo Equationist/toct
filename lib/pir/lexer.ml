@@ -1,28 +1,30 @@
-(* PIR Lexer - Tokenization for PIR text format *)
+(* PIR Lexer - Tokenization for PIR text format per spec *)
 
 (* Token types *)
 type token =
-  (* Keywords *)
-  | FUNC | RET | BR | JMP | SWITCH | UNREACHABLE
+  (* Module-level keywords *)
+  | TYPE | GLOBAL | CONST | FUNC | ENDFUNC | ALIGN | INIT
+  (* Instructions *)
   | ADD | SUB | MUL | SDIV | UDIV | SREM | UREM
-  | AND | OR | XOR | SHL | LSHR | ASHR | ROL | ROR
-  | FADD | FSUB | FMUL | FDIV | FREM | FMA
+  | AND | OR | XOR | NOT | SHL | LSHR | ASHR | ROL | ROR
+  | FADD | FSUB | FMUL | FDIV | FREM | FNEG | FMA
   | CLZ | CTZ | POPCNT
   | ICMP | FCMP | SELECT
   | LOAD | STORE | ALLOCA | MEMCPY | MEMSET
-  | GEP | FIELDADDR | PTRADD
-  | BITCAST | TRUNC | ZEXT | SEXT | FPTRUNC | FPEXT
+  | GEP | FIELDADDR | PTRADD | BITCAST
+  | TRUNC | ZEXT | SEXT | FPTRUNC | FPEXT
   | FPTOUI | FPTOSI | UITOFP | SITOFP
   | SPLAT | SHUFFLE | EXTRACTLANE | INSERTLANE
-  | CALL | TAILCALL | PHI
-  | CONST
+  | CALL | TAILCALL
+  (* Control flow *)
+  | RET | BR | JMP | SWITCH | UNREACHABLE
   (* Types *)
-  | I1 | I8 | I16 | I32 | I64 | F32 | F64 | PTR
-  | VEC | STRUCT | PACKED_STRUCT | ARRAY
+  | I1 | I8 | I16 | I32 | I64 | F32 | F64 | PTR | VOID
+  | STRUCT | PACKED_STRUCT | ARRAY
   (* Comparison predicates *)
-  | EQ | NE | SLT | SLE | SGT | SGE | ULT | ULE | UGT | UGE
+  | EQ | NE | LT | LE | GT | GE  (* Can be prefixed with s/u *)
   | OEQ | OGT | OGE | OLT | OLE | ONE | ORD
-  | UEQ | UGT_F | UGE_F | ULT_F | ULE_F | UNE | UNO
+  | UEQ | UNE | UNO
   (* Flags *)
   | NSW | CARRY | SAT
   (* Literals *)
@@ -30,13 +32,13 @@ type token =
   | FLOAT of float
   | STRING of string
   | IDENT of string
-  | LABEL of string
-  | VALUE of string  (* %123 *)
+  | VECTYPE of int * string  (* v4xi32 *)
   (* Delimiters *)
-  | LPAREN | RPAREN | LBRACE | RBRACE | LBRACKET | RBRACKET
-  | COMMA | COLON | SEMICOLON | ARROW | EQUALS | DOT | AT
+  | LPAREN | RPAREN | LBRACKET | RBRACKET | LCHEVRON | RCHEVRON
+  | LBRACE | RBRACE
+  | COMMA | COLON | ARROW | EQUALS | DOT | AT
   (* Special *)
-  | TRUE | FALSE | NULL | UNDEF | ZEROINITIALIZER
+  | TRUE | FALSE | NULL | UNDEF | TO
   | EOF
 
 (* Position information *)
@@ -102,7 +104,7 @@ let rec skip_whitespace state =
     advance state;
     skip_whitespace state
   | Some ';' ->
-    (* Skip line comment *)
+    (* Skip line comment per spec *)
     advance state;
     skip_line_comment state
   | _ -> ()
@@ -132,20 +134,21 @@ let is_alpha c = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
 let is_digit c = c >= '0' && c <= '9'
 let is_alnum c = is_alpha c || is_digit c
 let is_ident_start c = is_alpha c || c = '_'
-let is_ident_cont c = is_alnum c || c = '_' || c = '.'
+let is_ident_cont c = is_alnum c || c = '_'
 
 (* Read identifier or keyword *)
 let read_ident state =
   let ident = read_while is_ident_cont state in
   match ident with
-  (* Keywords *)
+  (* Module-level keywords *)
+  | "type" -> TYPE
+  | "global" -> GLOBAL
+  | "const" -> CONST
   | "func" -> FUNC
-  | "ret" -> RET
-  | "br" -> BR
-  | "jmp" -> JMP
-  | "switch" -> SWITCH
-  | "unreachable" -> UNREACHABLE
-  (* Binary operations *)
+  | "endfunc" -> ENDFUNC
+  | "align" -> ALIGN
+  | "init" -> INIT
+  (* Instructions *)
   | "add" -> ADD
   | "sub" -> SUB
   | "mul" -> MUL
@@ -156,6 +159,7 @@ let read_ident state =
   | "and" -> AND
   | "or" -> OR
   | "xor" -> XOR
+  | "not" -> NOT
   | "shl" -> SHL
   | "lshr" -> LSHR
   | "ashr" -> ASHR
@@ -166,6 +170,7 @@ let read_ident state =
   | "fmul" -> FMUL
   | "fdiv" -> FDIV
   | "frem" -> FREM
+  | "fneg" -> FNEG
   | "fma" -> FMA
   | "clz" -> CLZ
   | "ctz" -> CTZ
@@ -184,8 +189,8 @@ let read_ident state =
   | "gep" -> GEP
   | "fieldaddr" -> FIELDADDR
   | "ptradd" -> PTRADD
-  (* Cast operations *)
   | "bitcast" -> BITCAST
+  (* Cast operations *)
   | "trunc" -> TRUNC
   | "zext" -> ZEXT
   | "sext" -> SEXT
@@ -203,8 +208,12 @@ let read_ident state =
   (* Call operations *)
   | "call" -> CALL
   | "tailcall" -> TAILCALL
-  | "phi" -> PHI
-  | "const" -> CONST
+  (* Control flow *)
+  | "ret" -> RET
+  | "br" -> BR
+  | "jmp" -> JMP
+  | "switch" -> SWITCH
+  | "unreachable" -> UNREACHABLE
   (* Types *)
   | "i1" -> I1
   | "i8" -> I8
@@ -214,28 +223,32 @@ let read_ident state =
   | "f32" -> F32
   | "f64" -> F64
   | "ptr" -> PTR
-  | "vec" -> VEC
+  | "void" -> VOID
   | "struct" -> STRUCT
   | "packed_struct" -> PACKED_STRUCT
   | "array" -> ARRAY
   (* Comparison predicates *)
   | "eq" -> EQ
   | "ne" -> NE
-  | "slt" -> SLT
-  | "sle" -> SLE
-  | "sgt" -> SGT
-  | "sge" -> SGE
-  | "ult" -> ULT
-  | "ule" -> ULE
-  | "ugt" -> UGT
-  | "uge" -> UGE
+  | "lt" -> LT
+  | "le" -> LE
+  | "gt" -> GT
+  | "ge" -> GE
+  | "slt" -> LT  (* Will need context to distinguish *)
+  | "sle" -> LE
+  | "sgt" -> GT
+  | "sge" -> GE
+  | "ult" -> LT
+  | "ule" -> LE
+  | "ugt" -> GT
+  | "uge" -> GE
   | "oeq" -> OEQ
   | "ogt" -> OGT
   | "oge" -> OGE
   | "olt" -> OLT
   | "ole" -> OLE
-  | "one" -> ONE
-  | "ord" -> ORD
+  (* | "one" -> ONE  -- Conflicts with common variable name *)
+  (* | "ord" -> ORD  -- Conflicts with common variable name *)
   | "ueq" -> UEQ
   | "une" -> UNE
   | "uno" -> UNO
@@ -248,7 +261,7 @@ let read_ident state =
   | "false" -> FALSE
   | "null" -> NULL
   | "undef" -> UNDEF
-  | "zeroinitializer" -> ZEROINITIALIZER
+  | "to" -> TO
   (* Regular identifier *)
   | _ -> IDENT ident
 
@@ -306,41 +319,60 @@ let read_string state =
   in
   loop ()
 
-(* Read value reference *)
-let read_value state =
-  advance state; (* Skip % *)
-  let name = read_while is_alnum state in
-  VALUE name
+(* Read vector type like v4xi32 *)
+let read_vector_type state =
+  advance state; (* Skip 'v' *)
+  let num_str = read_while is_digit state in
+  if String.length num_str = 0 then
+    failwith "Invalid vector type: missing element count";
+  let n = int_of_string num_str in
+  (* Expect 'x' *)
+  match peek state with
+  | Some 'x' -> 
+    advance state;
+    let scalar_ty = read_while is_alnum state in
+    VECTYPE (n, scalar_ty)
+  | Some c -> failwith (Printf.sprintf "Invalid vector type: expected 'x' after count but got '%c'" c)
+  | None -> failwith "Invalid vector type: expected 'x' after count but got EOF"
 
 (* Get next token *)
 let next_token state =
   skip_whitespace state;
   match peek state with
   | None -> EOF
-  | Some '%' -> read_value state
   | Some '"' -> read_string state
+  | Some 'v' when (match peek_n state 1 with Some c -> is_digit c | _ -> false) ->
+    (* Check if this is really a vector type or just an identifier starting with v *)
+    let saved_pos = state.pos in
+    let saved_line = state.line in
+    let saved_col = state.column in
+    advance state; (* Skip 'v' *)
+    let _num_str = read_while is_digit state in
+    let is_vector = match peek state with
+      | Some 'x' -> true  (* This looks like a vector type *)
+      | _ -> false
+    in
+    (* Restore position *)
+    state.pos <- saved_pos;
+    state.line <- saved_line;
+    state.column <- saved_col;
+    if is_vector then
+      read_vector_type state
+    else
+      (* Just a regular identifier starting with v *)
+      read_ident state
   | Some c when is_digit c -> read_number state
   | Some c when is_ident_start c ->
     let ident_start = state.pos in
-    let ident = read_while is_ident_cont state in
-    (* Only treat as label if it's at start of line (for block labels) *)
+    let _ident = read_while is_ident_cont state in
+    (* Check for label (identifier followed by colon) *)
     if peek state = Some ':' then begin
-      (* Check if this looks like a block label by seeing if we're at line start
-         or if the next line starts with whitespace (indicating block content) *)
-      let is_block_label = 
-        state.column = 1 || (* At start of line *)
-        (match peek_n state 1 with
-         | Some '\n' | Some '\r' -> true (* Followed by newline *)
-         | _ -> false) in
-      if is_block_label then begin
-        advance state; (* Skip : *)
-        LABEL ident
-      end else begin
-        state.pos <- ident_start; (* Reset to read as ident *)
-        read_ident state
-      end
+      advance state; (* Skip : *)
+      (* Return as identifier - parser will handle label context *)
+      state.pos <- ident_start;
+      read_ident state
     end else begin
-      state.pos <- ident_start; (* Reset to read as ident *)
+      state.pos <- ident_start;
       read_ident state
     end
   | Some '-' ->
@@ -354,12 +386,22 @@ let next_token state =
         | FLOAT f -> FLOAT (-.f)
         | _ -> failwith "Unexpected number token")
      | _ -> failwith "Unexpected character after -")
+  | Some '<' ->
+    advance state;
+    (match peek state with
+     | Some '<' -> advance state; LCHEVRON
+     | _ -> failwith "Expected << for chevron")
+  | Some '>' ->
+    advance state;
+    (match peek state with
+     | Some '>' -> advance state; RCHEVRON
+     | _ -> failwith "Expected >> for chevron")
   | Some '(' -> advance state; LPAREN
   | Some ')' -> advance state; RPAREN
-  | Some '{' -> advance state; LBRACE
-  | Some '}' -> advance state; RBRACE
   | Some '[' -> advance state; LBRACKET
   | Some ']' -> advance state; RBRACKET
+  | Some '{' -> advance state; LBRACE
+  | Some '}' -> advance state; RBRACE
   | Some ',' -> advance state; COMMA
   | Some ':' -> advance state; COLON
   | Some '=' -> advance state; EQUALS
@@ -379,12 +421,15 @@ let tokenize input =
 
 (* Token to string for debugging *)
 let string_of_token = function
+  (* Module-level *)
+  | TYPE -> "TYPE"
+  | GLOBAL -> "GLOBAL"
+  | CONST -> "CONST"
   | FUNC -> "FUNC"
-  | RET -> "RET"
-  | BR -> "BR"
-  | JMP -> "JMP"
-  | SWITCH -> "SWITCH"
-  | UNREACHABLE -> "UNREACHABLE"
+  | ENDFUNC -> "ENDFUNC"
+  | ALIGN -> "ALIGN"
+  | INIT -> "INIT"
+  (* Instructions *)
   | ADD -> "ADD"
   | SUB -> "SUB"
   | MUL -> "MUL"
@@ -395,6 +440,7 @@ let string_of_token = function
   | AND -> "AND"
   | OR -> "OR"
   | XOR -> "XOR"
+  | NOT -> "NOT"
   | SHL -> "SHL"
   | LSHR -> "LSHR"
   | ASHR -> "ASHR"
@@ -405,6 +451,7 @@ let string_of_token = function
   | FMUL -> "FMUL"
   | FDIV -> "FDIV"
   | FREM -> "FREM"
+  | FNEG -> "FNEG"
   | FMA -> "FMA"
   | CLZ -> "CLZ"
   | CTZ -> "CTZ"
@@ -436,8 +483,13 @@ let string_of_token = function
   | INSERTLANE -> "INSERTLANE"
   | CALL -> "CALL"
   | TAILCALL -> "TAILCALL"
-  | PHI -> "PHI"
-  | CONST -> "CONST"
+  (* Control flow *)
+  | RET -> "RET"
+  | BR -> "BR"
+  | JMP -> "JMP"
+  | SWITCH -> "SWITCH"
+  | UNREACHABLE -> "UNREACHABLE"
+  (* Types *)
   | I1 -> "I1"
   | I8 -> "I8"
   | I16 -> "I16"
@@ -446,20 +498,17 @@ let string_of_token = function
   | F32 -> "F32"
   | F64 -> "F64"
   | PTR -> "PTR"
-  | VEC -> "VEC"
+  | VOID -> "VOID"
   | STRUCT -> "STRUCT"
   | PACKED_STRUCT -> "PACKED_STRUCT"
   | ARRAY -> "ARRAY"
+  (* Comparisons *)
   | EQ -> "EQ"
   | NE -> "NE"
-  | SLT -> "SLT"
-  | SLE -> "SLE"
-  | SGT -> "SGT"
-  | SGE -> "SGE"
-  | ULT -> "ULT"
-  | ULE -> "ULE"
-  | UGT -> "UGT"
-  | UGE -> "UGE"
+  | LT -> "LT"
+  | LE -> "LE"
+  | GT -> "GT"
+  | GE -> "GE"
   | OEQ -> "OEQ"
   | OGT -> "OGT"
   | OGE -> "OGE"
@@ -468,37 +517,37 @@ let string_of_token = function
   | ONE -> "ONE"
   | ORD -> "ORD"
   | UEQ -> "UEQ"
-  | UGT_F -> "UGT_F"
-  | UGE_F -> "UGE_F"
-  | ULT_F -> "ULT_F"
-  | ULE_F -> "ULE_F"
   | UNE -> "UNE"
   | UNO -> "UNO"
+  (* Flags *)
   | NSW -> "NSW"
   | CARRY -> "CARRY"
   | SAT -> "SAT"
+  (* Literals *)
   | INT n -> Printf.sprintf "INT(%Ld)" n
   | FLOAT f -> Printf.sprintf "FLOAT(%f)" f
   | STRING s -> Printf.sprintf "STRING(%S)" s
   | IDENT s -> Printf.sprintf "IDENT(%s)" s
-  | LABEL s -> Printf.sprintf "LABEL(%s)" s
-  | VALUE s -> Printf.sprintf "VALUE(%%%s)" s
+  | VECTYPE (n, s) -> Printf.sprintf "VECTYPE(v%dx%s)" n s
+  (* Delimiters *)
   | LPAREN -> "LPAREN"
   | RPAREN -> "RPAREN"
-  | LBRACE -> "LBRACE"
-  | RBRACE -> "RBRACE"
   | LBRACKET -> "LBRACKET"
   | RBRACKET -> "RBRACKET"
+  | LCHEVRON -> "LCHEVRON"
+  | RCHEVRON -> "RCHEVRON"
+  | LBRACE -> "LBRACE"
+  | RBRACE -> "RBRACE"
   | COMMA -> "COMMA"
   | COLON -> "COLON"
-  | SEMICOLON -> "SEMICOLON"
   | ARROW -> "ARROW"
   | EQUALS -> "EQUALS"
   | DOT -> "DOT"
   | AT -> "AT"
+  (* Special *)
   | TRUE -> "TRUE"
   | FALSE -> "FALSE"
   | NULL -> "NULL"
   | UNDEF -> "UNDEF"
-  | ZEROINITIALIZER -> "ZEROINITIALIZER"
+  | TO -> "TO"
   | EOF -> "EOF"

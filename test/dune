@@ -3,3 +3,9 @@
  (package compilerkit-test)
  (modes byte)
  (libraries compilerkit_common compilerkit_pir compilerkit_frontend compilerkit_backend compilerkit_target))
+
+(test
+ (name test_pir_spec)
+ (package compilerkit-test)
+ (modes byte)
+ (libraries compilerkit_common compilerkit_pir))

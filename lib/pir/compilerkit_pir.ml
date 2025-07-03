@@ -5,6 +5,7 @@ module Types = Types
 module Attributes = Attributes  
 module Values = Values
 module Instructions = Instructions
+module Module_ir = Module_ir
 module Builder = Builder
 module Pretty_printer = Pretty_printer
 module Linter = Linter
