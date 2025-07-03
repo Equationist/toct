@@ -1,0 +1,4 @@
+(lang dune 3.19)
+(name compilerkit-test)
+(sections (lib .) (doc ../../doc/compilerkit-test))
+(files (lib (META dune-package)) (doc (README.md)))

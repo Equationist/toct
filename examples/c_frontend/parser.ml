@@ -2,6 +2,7 @@
     
     This module implements a recursive descent parser for C89.
     It follows the grammar from the ANSI C specification.
+    This version uses the shared frontend infrastructure.
 *)
 
 open Ast
@@ -11,12 +12,20 @@ open Lexer
 type parser_state = {
   tokens: located_token array;
   mutable pos: int;
-  symbol_table: Symbol_table.t;
+  symbol_table: C_symbol_table.t;
+  error_reporter: C_errors.t;
+  mutable error_recovery: bool;
 }
 
 (** Create parser state from token list *)
 let create_parser tokens =
-  { tokens = Array.of_list tokens; pos = 0; symbol_table = Symbol_table.create () }
+  { 
+    tokens = Array.of_list tokens; 
+    pos = 0; 
+    symbol_table = C_symbol_table.create ();
+    error_reporter = C_errors.create ();
+    error_recovery = false;
+  }
 
 (** Peek at current token *)
 let peek state =
@@ -55,17 +64,24 @@ let expect state tok =
   let curr = peek state in
   if curr.token = tok then
     advance state
-  else
-    failwith (Printf.sprintf "Expected %s but got %s at %d:%d"
-      (token_to_string tok)
-      (token_to_string curr.token)
-      curr.loc.line curr.loc.column)
+  else begin
+    C_errors.parse_error_token state.error_reporter curr.loc 
+      (token_to_string tok) curr.token;
+    if not state.error_recovery then
+      failwith (Printf.sprintf "Expected %s but got %s at %d:%d"
+        (token_to_string tok)
+        (token_to_string curr.token)
+        curr.loc.line curr.loc.column)
+  end
 
 (** Parse error with location *)
 let parse_error state msg =
   let tok = peek state in
-  failwith (Printf.sprintf "%s at %d:%d (token: %s)"
-    msg tok.loc.line tok.loc.column (token_to_string tok.token))
+  C_errors.parse_error state.error_reporter tok.loc msg;
+  if not state.error_recovery then
+    failwith (Printf.sprintf "%s at %d:%d (token: %s)"
+      msg tok.loc.line tok.loc.column (token_to_string tok.token))
+
 
 (** Forward declarations for mutual recursion *)
 let expr_ref : (parser_state -> expr) ref = ref (fun _ -> assert false)
@@ -92,7 +108,7 @@ let parse_assignment_expr state = !assignment_expr_ref state
 
 (** Check if name is a typedef *)
 let is_typedef_name state name =
-  Symbol_table.is_typedef state.symbol_table name
+  C_symbol_table.is_typedef state.symbol_table name
 
 (** Parse storage class specifier *)
 let parse_storage_class state =
@@ -203,7 +219,9 @@ let parse_enum state =
                 parse_items (item :: acc)
               else
                 List.rev (item :: acc)
-          | _ -> parse_error state "Expected identifier in enum"
+          | _ -> 
+              parse_error state "Expected identifier in enum";
+              List.rev acc  (* Return accumulated items on error *)
       in
       let items = parse_items [] in
       expect state RightBrace;
@@ -317,7 +335,9 @@ let rec parse_direct_declarator state : Ast.direct_declarator =
         let decl = parse_declarator state in
         expect state RightParen;
         Ast.ParenDecl decl
-    | _ -> parse_error state "Expected identifier or ("
+    | _ -> 
+        parse_error state "Expected identifier or (";
+        Ast.Ident ""  (* Return dummy identifier *)
   in
   
   (* Parse suffixes *)
@@ -504,7 +524,9 @@ and parse_designated_initializer state =
              advance state;
              designators := Ast.MemberDesignator name :: !designators;
              parse_designators ()
-         | _ -> parse_error state "Expected identifier after .")
+         | _ -> 
+             parse_error state "Expected identifier after .";
+             parse_designators ())
     | _ -> ()
   in
   
@@ -526,7 +548,9 @@ let rec parse_primary_expr state =
       let e = parse_expr state in
       expect state RightParen;
       e
-  | _ -> parse_error state "Expected primary expression"
+  | _ -> 
+      parse_error state "Expected primary expression";
+      Ast.Ident ""  (* Return dummy identifier *)
 
 (** Parse postfix expression *)
 and parse_postfix_expr state =
@@ -548,14 +572,18 @@ and parse_postfix_expr state =
          | Identifier name ->
              advance state;
              parse_suffix (Ast.Member (expr, name))
-         | _ -> parse_error state "Expected identifier after .")
+         | _ -> 
+             parse_error state "Expected identifier after .";
+             expr)
     | Arrow ->
         advance state;
         (match (peek state).token with
          | Identifier name ->
              advance state;
              parse_suffix (Ast.PtrMember (expr, name))
-         | _ -> parse_error state "Expected identifier after ->")
+         | _ -> 
+             parse_error state "Expected identifier after ->";
+             expr)
     | PlusPlus ->
         advance state;
         parse_suffix (Ast.UnOp (Ast.PostInc, expr))
@@ -771,7 +799,9 @@ and parse_selection_stmt state =
       expect state RightParen;
       let body = parse_stmt state in
       Ast.SwitchStmt (expr, body)
-  | _ -> parse_error state "Expected if or switch"
+  | _ -> 
+      parse_error state "Expected if or switch";
+      Ast.ExprStmt None
 
 (** Parse iteration statement *)
 and parse_iteration_stmt state =
@@ -812,7 +842,9 @@ and parse_iteration_stmt state =
       expect state RightParen;
       let body = parse_stmt state in
       Ast.ForStmt (init, cond, update, body)
-  | _ -> parse_error state "Expected while, do, or for"
+  | _ -> 
+      parse_error state "Expected while, do, or for";
+      Ast.ExprStmt None
 
 (** Parse jump statement *)
 and parse_jump_stmt state =
@@ -824,7 +856,9 @@ and parse_jump_stmt state =
            advance state;
            expect state Semicolon;
            Ast.GotoStmt label
-       | _ -> parse_error state "Expected label after goto")
+       | _ -> 
+           parse_error state "Expected label after goto";
+           Ast.GotoStmt "")
   | Continue ->
       advance state;
       expect state Semicolon;
@@ -841,7 +875,9 @@ and parse_jump_stmt state =
       in
       expect state Semicolon;
       Ast.ReturnStmt expr
-  | _ -> parse_error state "Expected goto, continue, break, or return"
+  | _ -> 
+      parse_error state "Expected goto, continue, break, or return";
+      Ast.ExprStmt None
 
 (** Parse labeled statement *)
 and parse_labeled_stmt state =
@@ -862,7 +898,9 @@ and parse_labeled_stmt state =
       expect state Colon;
       let stmt = parse_stmt state in
       Ast.DefaultStmt stmt
-  | _ -> parse_error state "Expected label, case, or default"
+  | _ -> 
+      parse_error state "Expected label, case, or default";
+      Ast.ExprStmt None
 
 (** Implementation of parse_stmt *)
 let parse_stmt_impl state =
@@ -901,7 +939,8 @@ let parse_decl_impl state =
         match decl with
         | Ast.DirectDecl (Ast.Ident name) 
         | Ast.PointerDecl (_, Ast.DirectDecl (Ast.Ident name)) ->
-            Symbol_table.add_typedef state.symbol_table name
+            let loc = (peek state).loc in
+            let _ = C_symbol_table.add_typedef state.symbol_table name [] [] loc in ()
         | _ -> ()
       end;
       
@@ -990,7 +1029,8 @@ let parse_external_decl state =
             match decl with
             | Ast.DirectDecl (Ast.Ident name) 
             | Ast.PointerDecl (_, Ast.DirectDecl (Ast.Ident name)) ->
-                Symbol_table.add_typedef state.symbol_table name
+                let loc = (peek state).loc in
+            let _ = C_symbol_table.add_typedef state.symbol_table name [] [] loc in ()
             | _ -> ()
           end;
           
@@ -1013,7 +1053,8 @@ let parse_external_decl state =
                 match decl with
                 | Ast.DirectDecl (Ast.Ident name) 
                 | Ast.PointerDecl (_, Ast.DirectDecl (Ast.Ident name)) ->
-                    Symbol_table.add_typedef state.symbol_table name
+                    let loc = (peek state).loc in
+            let _ = C_symbol_table.add_typedef state.symbol_table name [] [] loc in ()
                 | _ -> ()
               end;
               let init =

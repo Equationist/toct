@@ -1,0 +1,421 @@
+(lang dune 3.19)
+(name compilerkit)
+(sections (lib .) (bin ../../bin) (doc ../../doc/compilerkit))
+(files
+ (lib
+  (META
+   backend/arm64_backend.ml
+   backend/codegen.ml
+   backend/compilerkit_backend.cma
+   backend/compilerkit_backend.cmi
+   backend/compilerkit_backend.cmt
+   backend/compilerkit_backend.ml
+   backend/compilerkit_backend__.cmi
+   backend/compilerkit_backend__.cmt
+   backend/compilerkit_backend__.ml
+   backend/compilerkit_backend__Arm64_backend.cmi
+   backend/compilerkit_backend__Arm64_backend.cmt
+   backend/compilerkit_backend__Codegen.cmi
+   backend/compilerkit_backend__Codegen.cmt
+   backend/compilerkit_backend__Dominance.cmi
+   backend/compilerkit_backend__Dominance.cmt
+   backend/compilerkit_backend__Instruction_selection.cmi
+   backend/compilerkit_backend__Instruction_selection.cmt
+   backend/compilerkit_backend__Machine.cmi
+   backend/compilerkit_backend__Machine.cmt
+   backend/compilerkit_backend__Macho_writer.cmi
+   backend/compilerkit_backend__Macho_writer.cmt
+   backend/compilerkit_backend__Register_allocator.cmi
+   backend/compilerkit_backend__Register_allocator.cmt
+   backend/compilerkit_backend__Ssa_block_params.cmi
+   backend/compilerkit_backend__Ssa_block_params.cmt
+   backend/compilerkit_backend__Ssa_verify.cmi
+   backend/compilerkit_backend__Ssa_verify.cmt
+   backend/compilerkit_backend__X86_64_backend.cmi
+   backend/compilerkit_backend__X86_64_backend.cmt
+   backend/dominance.ml
+   backend/instruction_selection.ml
+   backend/machine.ml
+   backend/macho_writer.ml
+   backend/register_allocator.ml
+   backend/ssa_block_params.ml
+   backend/ssa_verify.ml
+   backend/x86_64_backend.ml
+   common/compilerkit_common.cma
+   common/compilerkit_common.cmi
+   common/compilerkit_common.cmt
+   common/compilerkit_common.ml
+   compilerkit.cma
+   compilerkit.cmi
+   compilerkit.cmt
+   compilerkit.ml
+   dune-package
+   frontend/compilerkit_frontend.cma
+   frontend/compilerkit_frontend.cmi
+   frontend/compilerkit_frontend.cmt
+   frontend/compilerkit_frontend.ml
+   frontend/compilerkit_frontend__.cmi
+   frontend/compilerkit_frontend__.cmt
+   frontend/compilerkit_frontend__.ml
+   frontend/compilerkit_frontend__Error_reporter.cmi
+   frontend/compilerkit_frontend__Error_reporter.cmt
+   frontend/compilerkit_frontend__Error_reporter.cmti
+   frontend/compilerkit_frontend__Grammar_utils.cmi
+   frontend/compilerkit_frontend__Grammar_utils.cmt
+   frontend/compilerkit_frontend__Lexer_utils.cmi
+   frontend/compilerkit_frontend__Lexer_utils.cmt
+   frontend/compilerkit_frontend__Parser_utils.cmi
+   frontend/compilerkit_frontend__Parser_utils.cmt
+   frontend/compilerkit_frontend__Parser_utils.cmti
+   frontend/compilerkit_frontend__Position.cmi
+   frontend/compilerkit_frontend__Position.cmt
+   frontend/compilerkit_frontend__Pratt.cmi
+   frontend/compilerkit_frontend__Pratt.cmt
+   frontend/compilerkit_frontend__Preprocessor_utils.cmi
+   frontend/compilerkit_frontend__Preprocessor_utils.cmt
+   frontend/compilerkit_frontend__Symbol_table.cmi
+   frontend/compilerkit_frontend__Symbol_table.cmt
+   frontend/compilerkit_frontend__Test_utils.cmi
+   frontend/compilerkit_frontend__Test_utils.cmt
+   frontend/compilerkit_frontend__Token_location.cmi
+   frontend/compilerkit_frontend__Token_location.cmt
+   frontend/compilerkit_frontend__Token_location.cmti
+   frontend/compilerkit_frontend__Type_infer.cmi
+   frontend/compilerkit_frontend__Type_infer.cmt
+   frontend/compilerkit_frontend__Type_system.cmi
+   frontend/compilerkit_frontend__Type_system.cmt
+   frontend/compilerkit_frontend__Unify.cmi
+   frontend/compilerkit_frontend__Unify.cmt
+   frontend/error_reporter.ml
+   frontend/error_reporter.mli
+   frontend/grammar_utils.ml
+   frontend/lexer_utils.ml
+   frontend/parser_utils.ml
+   frontend/parser_utils.mli
+   frontend/position.ml
+   frontend/pratt.ml
+   frontend/preprocessor_utils.ml
+   frontend/symbol_table.ml
+   frontend/test_utils.ml
+   frontend/token_location.ml
+   frontend/token_location.mli
+   frontend/type_infer.ml
+   frontend/type_system.ml
+   frontend/unify.ml
+   pir/attributes.ml
+   pir/builder.ml
+   pir/compilerkit_pir.cma
+   pir/compilerkit_pir.cmi
+   pir/compilerkit_pir.cmt
+   pir/compilerkit_pir.ml
+   pir/compilerkit_pir__.cmi
+   pir/compilerkit_pir__.cmt
+   pir/compilerkit_pir__.ml
+   pir/compilerkit_pir__Attributes.cmi
+   pir/compilerkit_pir__Attributes.cmt
+   pir/compilerkit_pir__Builder.cmi
+   pir/compilerkit_pir__Builder.cmt
+   pir/compilerkit_pir__Instructions.cmi
+   pir/compilerkit_pir__Instructions.cmt
+   pir/compilerkit_pir__Lexer.cmi
+   pir/compilerkit_pir__Lexer.cmt
+   pir/compilerkit_pir__Linter.cmi
+   pir/compilerkit_pir__Linter.cmt
+   pir/compilerkit_pir__Module_ir.cmi
+   pir/compilerkit_pir__Module_ir.cmt
+   pir/compilerkit_pir__Parser.cmi
+   pir/compilerkit_pir__Parser.cmt
+   pir/compilerkit_pir__Pretty_printer.cmi
+   pir/compilerkit_pir__Pretty_printer.cmt
+   pir/compilerkit_pir__Types.cmi
+   pir/compilerkit_pir__Types.cmt
+   pir/compilerkit_pir__Values.cmi
+   pir/compilerkit_pir__Values.cmt
+   pir/instructions.ml
+   pir/lexer.ml
+   pir/linter.ml
+   pir/module_ir.ml
+   pir/parser.ml
+   pir/pretty_printer.ml
+   pir/types.ml
+   pir/values.ml
+   target/compilerkit_target.cma
+   target/compilerkit_target.cmi
+   target/compilerkit_target.cmt
+   target/compilerkit_target.ml))
+ (bin (fibonacci memory_ops pir-objdump pirc vector_ops))
+ (doc (README.md)))
+(library
+ (name compilerkit)
+ (kind normal)
+ (archives (byte compilerkit.cma))
+ (plugins (byte compilerkit.cma))
+ (main_module_name Compilerkit)
+ (modes byte)
+ (modules
+  (wrapped
+   (group
+    (alias
+     (obj_name compilerkit)
+     (visibility public)
+     (kind alias)
+     (source (path Compilerkit) (impl (path compilerkit.ml-gen))))
+    (name Compilerkit))
+   (wrapped true))))
+(library
+ (name compilerkit.backend)
+ (kind normal)
+ (archives (byte backend/compilerkit_backend.cma))
+ (plugins (byte backend/compilerkit_backend.cma))
+ (requires compilerkit.common compilerkit.pir)
+ (main_module_name Compilerkit_backend)
+ (modes byte)
+ (modules
+  (wrapped
+   (group
+    (alias
+     (obj_name compilerkit_backend__)
+     (visibility public)
+     (kind alias)
+     (source
+      (path Compilerkit_backend__)
+      (impl (path backend/compilerkit_backend__.ml-gen))))
+    (name Compilerkit_backend)
+    (modules
+     (module
+      (obj_name compilerkit_backend__Arm64_backend)
+      (visibility public)
+      (source (path Arm64_backend) (impl (path backend/arm64_backend.ml))))
+     (module
+      (obj_name compilerkit_backend__Codegen)
+      (visibility public)
+      (source (path Codegen) (impl (path backend/codegen.ml))))
+     (module
+      (obj_name compilerkit_backend)
+      (visibility public)
+      (source
+       (path Compilerkit_backend)
+       (impl (path backend/compilerkit_backend.ml))))
+     (module
+      (obj_name compilerkit_backend__Dominance)
+      (visibility public)
+      (source (path Dominance) (impl (path backend/dominance.ml))))
+     (module
+      (obj_name compilerkit_backend__Instruction_selection)
+      (visibility public)
+      (source
+       (path Instruction_selection)
+       (impl (path backend/instruction_selection.ml))))
+     (module
+      (obj_name compilerkit_backend__Machine)
+      (visibility public)
+      (source (path Machine) (impl (path backend/machine.ml))))
+     (module
+      (obj_name compilerkit_backend__Macho_writer)
+      (visibility public)
+      (source (path Macho_writer) (impl (path backend/macho_writer.ml))))
+     (module
+      (obj_name compilerkit_backend__Register_allocator)
+      (visibility public)
+      (source
+       (path Register_allocator)
+       (impl (path backend/register_allocator.ml))))
+     (module
+      (obj_name compilerkit_backend__Ssa_block_params)
+      (visibility public)
+      (source
+       (path Ssa_block_params)
+       (impl (path backend/ssa_block_params.ml))))
+     (module
+      (obj_name compilerkit_backend__Ssa_verify)
+      (visibility public)
+      (source (path Ssa_verify) (impl (path backend/ssa_verify.ml))))
+     (module
+      (obj_name compilerkit_backend__X86_64_backend)
+      (visibility public)
+      (source (path X86_64_backend) (impl (path backend/x86_64_backend.ml))))))
+   (wrapped true))))
+(library
+ (name compilerkit.common)
+ (kind normal)
+ (archives (byte common/compilerkit_common.cma))
+ (plugins (byte common/compilerkit_common.cma))
+ (main_module_name Compilerkit_common)
+ (modes byte)
+ (modules
+  (singleton
+   (obj_name compilerkit_common)
+   (visibility public)
+   (source
+    (path Compilerkit_common)
+    (impl (path common/compilerkit_common.ml))))))
+(library
+ (name compilerkit.frontend)
+ (kind normal)
+ (archives (byte frontend/compilerkit_frontend.cma))
+ (plugins (byte frontend/compilerkit_frontend.cma))
+ (requires compilerkit.common compilerkit.pir)
+ (main_module_name Compilerkit_frontend)
+ (modes byte)
+ (modules
+  (wrapped
+   (group
+    (alias
+     (obj_name compilerkit_frontend__)
+     (visibility public)
+     (kind alias)
+     (source
+      (path Compilerkit_frontend__)
+      (impl (path frontend/compilerkit_frontend__.ml-gen))))
+    (name Compilerkit_frontend)
+    (modules
+     (module
+      (obj_name compilerkit_frontend)
+      (visibility public)
+      (source
+       (path Compilerkit_frontend)
+       (impl (path frontend/compilerkit_frontend.ml))))
+     (module
+      (obj_name compilerkit_frontend__Error_reporter)
+      (visibility public)
+      (source
+       (path Error_reporter)
+       (intf (path frontend/error_reporter.mli))
+       (impl (path frontend/error_reporter.ml))))
+     (module
+      (obj_name compilerkit_frontend__Grammar_utils)
+      (visibility public)
+      (source (path Grammar_utils) (impl (path frontend/grammar_utils.ml))))
+     (module
+      (obj_name compilerkit_frontend__Lexer_utils)
+      (visibility public)
+      (source (path Lexer_utils) (impl (path frontend/lexer_utils.ml))))
+     (module
+      (obj_name compilerkit_frontend__Parser_utils)
+      (visibility public)
+      (source
+       (path Parser_utils)
+       (intf (path frontend/parser_utils.mli))
+       (impl (path frontend/parser_utils.ml))))
+     (module
+      (obj_name compilerkit_frontend__Position)
+      (visibility public)
+      (source (path Position) (impl (path frontend/position.ml))))
+     (module
+      (obj_name compilerkit_frontend__Pratt)
+      (visibility public)
+      (source (path Pratt) (impl (path frontend/pratt.ml))))
+     (module
+      (obj_name compilerkit_frontend__Preprocessor_utils)
+      (visibility public)
+      (source
+       (path Preprocessor_utils)
+       (impl (path frontend/preprocessor_utils.ml))))
+     (module
+      (obj_name compilerkit_frontend__Symbol_table)
+      (visibility public)
+      (source (path Symbol_table) (impl (path frontend/symbol_table.ml))))
+     (module
+      (obj_name compilerkit_frontend__Test_utils)
+      (visibility public)
+      (source (path Test_utils) (impl (path frontend/test_utils.ml))))
+     (module
+      (obj_name compilerkit_frontend__Token_location)
+      (visibility public)
+      (source
+       (path Token_location)
+       (intf (path frontend/token_location.mli))
+       (impl (path frontend/token_location.ml))))
+     (module
+      (obj_name compilerkit_frontend__Type_infer)
+      (visibility public)
+      (source (path Type_infer) (impl (path frontend/type_infer.ml))))
+     (module
+      (obj_name compilerkit_frontend__Type_system)
+      (visibility public)
+      (source (path Type_system) (impl (path frontend/type_system.ml))))
+     (module
+      (obj_name compilerkit_frontend__Unify)
+      (visibility public)
+      (source (path Unify) (impl (path frontend/unify.ml))))))
+   (wrapped true))))
+(library
+ (name compilerkit.pir)
+ (kind normal)
+ (archives (byte pir/compilerkit_pir.cma))
+ (plugins (byte pir/compilerkit_pir.cma))
+ (requires compilerkit.common)
+ (main_module_name Compilerkit_pir)
+ (modes byte)
+ (modules
+  (wrapped
+   (group
+    (alias
+     (obj_name compilerkit_pir__)
+     (visibility public)
+     (kind alias)
+     (source
+      (path Compilerkit_pir__)
+      (impl (path pir/compilerkit_pir__.ml-gen))))
+    (name Compilerkit_pir)
+    (modules
+     (module
+      (obj_name compilerkit_pir__Attributes)
+      (visibility public)
+      (source (path Attributes) (impl (path pir/attributes.ml))))
+     (module
+      (obj_name compilerkit_pir__Builder)
+      (visibility public)
+      (source (path Builder) (impl (path pir/builder.ml))))
+     (module
+      (obj_name compilerkit_pir)
+      (visibility public)
+      (source (path Compilerkit_pir) (impl (path pir/compilerkit_pir.ml))))
+     (module
+      (obj_name compilerkit_pir__Instructions)
+      (visibility public)
+      (source (path Instructions) (impl (path pir/instructions.ml))))
+     (module
+      (obj_name compilerkit_pir__Lexer)
+      (visibility public)
+      (source (path Lexer) (impl (path pir/lexer.ml))))
+     (module
+      (obj_name compilerkit_pir__Linter)
+      (visibility public)
+      (source (path Linter) (impl (path pir/linter.ml))))
+     (module
+      (obj_name compilerkit_pir__Module_ir)
+      (visibility public)
+      (source (path Module_ir) (impl (path pir/module_ir.ml))))
+     (module
+      (obj_name compilerkit_pir__Parser)
+      (visibility public)
+      (source (path Parser) (impl (path pir/parser.ml))))
+     (module
+      (obj_name compilerkit_pir__Pretty_printer)
+      (visibility public)
+      (source (path Pretty_printer) (impl (path pir/pretty_printer.ml))))
+     (module
+      (obj_name compilerkit_pir__Types)
+      (visibility public)
+      (source (path Types) (impl (path pir/types.ml))))
+     (module
+      (obj_name compilerkit_pir__Values)
+      (visibility public)
+      (source (path Values) (impl (path pir/values.ml))))))
+   (wrapped true))))
+(library
+ (name compilerkit.target)
+ (kind normal)
+ (archives (byte target/compilerkit_target.cma))
+ (plugins (byte target/compilerkit_target.cma))
+ (requires compilerkit.common compilerkit.pir compilerkit.backend)
+ (main_module_name Compilerkit_target)
+ (modes byte)
+ (modules
+  (singleton
+   (obj_name compilerkit_target)
+   (visibility public)
+   (source
+    (path Compilerkit_target)
+    (impl (path target/compilerkit_target.ml))))))

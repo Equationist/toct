@@ -1,7 +1,7 @@
 (library
  (name c_frontend)
- (libraries unix)
- (modules preprocessor lexer ast symbol_table parser))
+ (libraries unix compilerkit.frontend)
+ (modules preprocessor lexer ast parser c_symbol_table c_errors c_lexer_utils))
 
 (executable
  (name test_preprocessor)
@@ -81,6 +81,17 @@
  (modules test_parse_all)
  (modes byte))
 
+(executable
+ (name test_integrated_parser)
+ (libraries c_frontend)
+ (modules test_integrated_parser)
+ (modes byte))
+
+(executable
+ (name test_parse_diagnostics)
+ (libraries c_frontend)
+ (modules test_parse_diagnostics)
+ (modes byte))
 
 (rule
  (alias runtest)

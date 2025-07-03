@@ -3,6 +3,15 @@
 (** @canonical C_frontend.Ast *)
 module Ast = C_frontend__Ast
 
+(** @canonical C_frontend.C_errors *)
+module C_errors = C_frontend__C_errors
+
+(** @canonical C_frontend.C_lexer_utils *)
+module C_lexer_utils = C_frontend__C_lexer_utils
+
+(** @canonical C_frontend.C_symbol_table *)
+module C_symbol_table = C_frontend__C_symbol_table
+
 (** @canonical C_frontend.Lexer *)
 module Lexer = C_frontend__Lexer
 
@@ -11,6 +20,3 @@ module Parser = C_frontend__Parser
 
 (** @canonical C_frontend.Preprocessor *)
 module Preprocessor = C_frontend__Preprocessor
-
-(** @canonical C_frontend.Symbol_table *)
-module Symbol_table = C_frontend__Symbol_table

@@ -1,3 +1,4 @@
 c_frontend__Ast
+c_frontend__C_errors
+c_frontend__C_symbol_table
 c_frontend__Lexer
-c_frontend__Symbol_table
