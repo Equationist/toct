@@ -9,13 +9,16 @@
 - ✅ Control flow (if/else)
 - ✅ While and for loops (structure - needs SSA fixes)
 - ✅ Function calls with proper name resolution
-- ✅ Basic array declarations
+- ✅ Basic array declarations with alloca, Load/Store
+- ✅ String literals (PIR generation only)
 
 ### Known Issues
 1. **SSA Form**: Loops don't work correctly without phi nodes
-2. **Array Allocation**: Array alloca instructions not being included in PIR output (v252 used but not defined)
-3. **Function Parameters**: Parameters not properly connected to calling convention registers
-4. **Const Handling**: ConstZero values not properly handled in backend
+2. **Function Parameters**: Parameters not properly connected to calling convention registers
+3. **Const Handling**: ConstZero values not properly handled in backend
+4. **String Literals**: Need to be emitted as global constants in data section
+5. **External Functions**: Printf and other external functions need proper declarations
+6. **Varargs**: Need proper calling convention support for variadic functions
 
 ### PIR Design Issues (FIXED)
 The Load instruction in PIR had a fundamental design issue:

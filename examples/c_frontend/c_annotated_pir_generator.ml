@@ -235,6 +235,14 @@ let rec gen_annotated_expr ctx annotated_expr =
     emit_instr ctx ~result:result_val (Memory (Load (Scalar I32, elem_ptr)));
     result_val
     
+  | StringLit str ->
+    (* For string literals, we need to create a global string constant *)
+    (* For now, just create a pointer value that represents the string *)
+    let ptr_val = create_simple_value Ptr in
+    (* Attach the string content as an attribute for the backend to handle *)
+    let ptr_with_str = add_attr "string_literal" (Compilerkit_pir.Attributes.String str) ptr_val in
+    ptr_with_str
+    
   | _ ->
     failwith "Expression not implemented for annotated AST"
 
