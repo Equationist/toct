@@ -65,6 +65,7 @@ type machine_op =
   (* Comparison *)
   | CMP of reg * reg                     (* Compare and set flags *)
   | TEST of reg * reg                    (* Bitwise AND and set flags *)
+  | CSET of reg * cond                   (* Set register to 1 if condition true, 0 otherwise *)
   
   (* Control flow *)
   | JMP of string                        (* Unconditional jump *)

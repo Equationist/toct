@@ -123,12 +123,22 @@ let rec gen_annotated_expr ctx annotated_expr =
        (* Try to look up in symbol table *)
        match lookup_symbol ctx.symbol_table name with
        | Some symbol ->
-         (match c_type_to_pir_type symbol.c_type with
-          | Some pir_ty ->
-            let value = create_simple_value pir_ty in
-            Hashtbl.add ctx.value_map name value;
-            value
-          | None -> failwith ("Cannot convert C type to PIR: " ^ string_of_c_type symbol.c_type))
+         (match symbol.c_type with
+          | Function (_, _, _) ->
+            (* For functions, create a pointer value representing the function *)
+            let func_value = create_simple_value Ptr in
+            (* Attach the function name as an attribute *)
+            let func_value_with_name = 
+              add_attr "function_name" (Compilerkit_pir.Attributes.String name) func_value in
+            Hashtbl.add ctx.value_map name func_value_with_name;
+            func_value_with_name
+          | _ ->
+            (match c_type_to_pir_type symbol.c_type with
+             | Some pir_ty ->
+               let value = create_simple_value pir_ty in
+               Hashtbl.add ctx.value_map name value;
+               value
+             | None -> failwith ("Cannot convert C type to PIR: " ^ string_of_c_type symbol.c_type)))
        | None -> failwith ("Undeclared identifier: " ^ name))
 
   | BinOp (op, left, right) ->
@@ -179,6 +189,21 @@ let rec gen_annotated_expr ctx annotated_expr =
      
      | _ -> failwith ("Binary operator not implemented"))
 
+  | FuncCall (func_expr, arg_exprs) ->
+    (* Generate value for the function *)
+    let func_val = gen_annotated_expr_raw ctx func_expr in
+    
+    (* Generate PIR for arguments *)
+    let arg_vals = List.map (gen_annotated_expr_raw ctx) arg_exprs in
+    
+    (* Determine return type - for now assume i32 *)
+    let return_type = Scalar I32 in
+    let result_value = create_simple_value return_type in
+    
+    (* Emit call instruction *)
+    emit_instr ctx ~result:result_value (Call (Call (func_val, arg_vals)));
+    result_value
+    
   | _ ->
     failwith "Expression not implemented for annotated AST"
 
@@ -246,6 +271,78 @@ let rec gen_annotated_stmt ctx annotated_stmt =
     (* Continue with end block *)
     start_block ctx end_label
   
+  | WhileStmt (cond_expr, body_stmt) ->
+    (* Create labels *)
+    let loop_header = fresh_label ctx in
+    let loop_body = fresh_label ctx in
+    let loop_end = fresh_label ctx in
+    
+    (* Jump to loop header *)
+    finish_block ctx (Jmp loop_header);
+    
+    (* Loop header - evaluate condition *)
+    start_block ctx loop_header;
+    let cond_val = gen_annotated_expr_raw ctx cond_expr in
+    finish_block ctx (Br (cond_val, loop_body, loop_end));
+    
+    (* Loop body *)
+    start_block ctx loop_body;
+    gen_annotated_stmt ctx (annotate body_stmt empty_c_info);
+    (* Jump back to header if block wasn't terminated *)
+    (match ctx.current_block with
+     | Some _ -> finish_block ctx (Jmp loop_header)
+     | None -> ());
+    
+    (* Continue after loop *)
+    start_block ctx loop_end
+  
+  | ForStmt (init_opt, cond_opt, update_opt, body_stmt) ->
+    (* Generate initialization if present *)
+    (match init_opt with
+     | Some init_expr -> 
+       let _ = gen_annotated_expr_raw ctx init_expr in ()
+     | None -> ());
+    
+    (* Create labels *)
+    let loop_header = fresh_label ctx in
+    let loop_body = fresh_label ctx in
+    let loop_continue = fresh_label ctx in
+    let loop_end = fresh_label ctx in
+    
+    (* Jump to loop header *)
+    finish_block ctx (Jmp loop_header);
+    
+    (* Loop header - evaluate condition *)
+    start_block ctx loop_header;
+    let cond_val = match cond_opt with
+      | Some cond_expr -> gen_annotated_expr_raw ctx cond_expr
+      | None -> 
+        (* No condition means always true *)
+        let true_val = create_simple_value (Scalar I1) in
+        emit_instr ctx ~result:true_val (Const (ConstInt (1L, I1)));
+        true_val
+    in
+    finish_block ctx (Br (cond_val, loop_body, loop_end));
+    
+    (* Loop body *)
+    start_block ctx loop_body;
+    gen_annotated_stmt ctx (annotate body_stmt empty_c_info);
+    (* Jump to continue label if block wasn't terminated *)
+    (match ctx.current_block with
+     | Some _ -> finish_block ctx (Jmp loop_continue)
+     | None -> ());
+    
+    (* Continue label - update expression *)
+    start_block ctx loop_continue;
+    (match update_opt with
+     | Some update_expr -> 
+       let _ = gen_annotated_expr_raw ctx update_expr in ()
+     | None -> ());
+    finish_block ctx (Jmp loop_header);
+    
+    (* Continue after loop *)
+    start_block ctx loop_end
+  
   | _ -> failwith "Statement not implemented for annotated AST"
 
 (** Generate PIR for annotated block items *)
@@ -284,12 +381,27 @@ and gen_annotated_block_item ctx annotated_item =
        | None -> failwith ("Cannot convert variable type to PIR: " ^ string_of_c_type var_type))
     ) init_decls
 
+(** Extract function name from declarator *)
+let rec extract_function_name declarator =
+  match declarator with
+  | DirectDecl (Ident name) -> name
+  | DirectDecl (FuncDecl (inner, _)) -> extract_direct_name inner
+  | DirectDecl (ParenDecl inner) -> extract_function_name inner
+  | PointerDecl (_, inner) -> extract_function_name inner
+  | _ -> failwith "Cannot extract function name"
+
+and extract_direct_name direct_decl =
+  match direct_decl with
+  | Ident name -> name
+  | ParenDecl inner -> extract_function_name inner
+  | _ -> failwith "Cannot extract function name from direct declarator"
+
 (** Generate PIR for annotated function definition *)
 let gen_annotated_func_def ctx annotated_func_def =
   let func_def = get_node annotated_func_def in
   let info = get_info annotated_func_def in
   
-  let { storage = _; specs = _; quals = _; declarator = _; body; _ } = func_def in
+  let { storage = _; specs = _; quals = _; declarator; body; _ } = func_def in
   
   (* Extract function information from annotation *)
   let func_type = match info.c_type with
@@ -297,12 +409,7 @@ let gen_annotated_func_def ctx annotated_func_def =
     | None -> failwith "Missing type information for function"
   in
   
-  let func_name = match func_type with
-    | Function (_, _, _) ->
-      (* Extract function name from declarator - simplified for now *)
-      "main"
-    | _ -> failwith "Not a function type"
-  in
+  let func_name = extract_function_name declarator in
   
   (* Extract function parameters and return type *)
   let (return_ty, params, _varargs) = match func_type with

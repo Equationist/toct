@@ -60,7 +60,10 @@ let rec build_tree (instr: Instructions.instr) : tree_node =
        | Instructions.Shuffle (v1, v2, _) -> [value_to_tree v1; value_to_tree v2]
        | Instructions.ExtractLane (v, _) -> [value_to_tree v]
        | Instructions.InsertLane (v, _, scalar) -> [value_to_tree v; value_to_tree scalar])
-    | Instructions.Call _ -> []  (* Handle separately *)
+    | Instructions.Call call_op ->
+      (match call_op with
+       | Instructions.Call (fn_ptr, args) -> value_to_tree fn_ptr :: List.map value_to_tree args
+       | Instructions.TailCall (fn_ptr, args) -> value_to_tree fn_ptr :: List.map value_to_tree args)
     | Instructions.Phi _ -> []   (* Handle in SSA destruction *)
     | Instructions.Const _ -> []
     | Instructions.Freeze v -> [value_to_tree v]
@@ -103,6 +106,16 @@ let match_pattern (pattern: pattern) (node: tree_node) : bool =
   | Instructions.Const (Values.ConstInt (_, ty1)), Instructions.Const (Values.ConstInt (_, ty2)) -> ty1 = ty2
   | Instructions.Const (Values.ConstFloat (_, ty1)), Instructions.Const (Values.ConstFloat (_, ty2)) -> ty1 = ty2
   | Instructions.Const Values.ConstNull, Instructions.Const Values.ConstNull -> true
+  | Instructions.Icmp (pred1, v1, v2), Instructions.Icmp (pred2, v3, v4) ->
+    (* Match if predicate is same and types match *)
+    pred1 = pred2 && v1.Values.ty = v3.Values.ty && v2.Values.ty = v4.Values.ty
+  | Instructions.Fcmp (pred1, v1, v2), Instructions.Fcmp (pred2, v3, v4) ->
+    (* Match if predicate is same and types match *)
+    pred1 = pred2 && v1.Values.ty = v3.Values.ty && v2.Values.ty = v4.Values.ty
+  | Instructions.Select (_, _, _), Instructions.Select (_, _, _) -> true  (* Simplified for now *)
+  | Instructions.Call _, Instructions.Call _ -> true  (* Simplified for now *)
+  | Instructions.Address (Instructions.Gep _), Instructions.Address (Instructions.Gep _) -> true
+  | Instructions.Cast _, Instructions.Cast _ -> true  (* TODO: More specific matching *)
   | _ -> false
 
 (* BURS algorithm - compute minimum cost cover *)
@@ -160,7 +173,10 @@ module InstructionSelector (M: MACHINE) = struct
        | Instructions.Shuffle (v1, v2, _) -> [v1; v2]
        | Instructions.ExtractLane (v, _) -> [v]
        | Instructions.InsertLane (v, _, scalar) -> [v; scalar])
-    | Instructions.Call _ -> []  (* Handle separately *)
+    | Instructions.Call call_op ->
+      (match call_op with
+       | Instructions.Call (fn_ptr, args) -> fn_ptr :: args
+       | Instructions.TailCall (fn_ptr, args) -> fn_ptr :: args)
     | Instructions.Phi _ -> []   (* Handle in SSA destruction *)
     | Instructions.Const _ -> []
     | Instructions.Freeze v -> [v]
@@ -172,7 +188,29 @@ module InstructionSelector (M: MACHINE) = struct
   (* Code emission with access to machine module and instruction context *)
   let rec emit_code_with_machine (node: tree_node) (reg_alloc: Values.value -> reg) (instr_context: Instructions.instruction option) : machine_instr list =
     match node.selected_pattern with
-    | None -> failwith "No pattern selected for instruction"
+    | None -> 
+      Printf.eprintf "DEBUG: No pattern selected for instruction: %s\n"
+        (match node.instr with
+         | Instructions.Binop (op, _, _, _) -> 
+           Printf.sprintf "Binop %s" 
+             (match op with
+              | Instructions.Add -> "Add" | Instructions.Sub -> "Sub" 
+              | Instructions.Mul -> "Mul" | Instructions.Sdiv -> "Sdiv"
+              | _ -> "Other")
+         | Instructions.Icmp (pred, _, _) -> 
+           Printf.sprintf "Icmp %s"
+             (match pred with
+              | Instructions.Eq -> "Eq" | Instructions.Ne -> "Ne"
+              | Instructions.Slt -> "Slt" | Instructions.Sle -> "Sle"
+              | Instructions.Sgt -> "Sgt" | Instructions.Sge -> "Sge"
+              | _ -> "Other")
+         | Instructions.Const _ -> "Const"
+         | Instructions.Call _ -> "Call"
+         | Instructions.Memory _ -> "Memory"
+         | Instructions.Address _ -> "Address"
+         | Instructions.Cast _ -> "Cast"
+         | _ -> "Other");
+      failwith "No pattern selected for instruction"
     | Some pattern ->
       (* First emit code for children *)
       let child_code = List.concat (List.map (fun child -> emit_code_with_machine child reg_alloc None) node.children) in

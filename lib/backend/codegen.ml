@@ -114,6 +114,7 @@ module CodeGenerator (M: MACHINE) = struct
     | OR (dst, src1, src2) -> Printf.sprintf "orr %s, %s, %s" (fmt_reg dst) (fmt_reg src1) (fmt_reg src2)
     | XOR (dst, src1, src2) -> Printf.sprintf "eor %s, %s, %s" (fmt_reg dst) (fmt_reg src1) (fmt_reg src2)
     | CMP (src1, src2) -> Printf.sprintf "cmp %s, %s" (fmt_reg src1) (fmt_reg src2)
+    | CSET (dst, cond) -> Printf.sprintf "cset %s, %s" (fmt_reg dst) (format_cond cond)
     | JMP label -> Printf.sprintf "b %s" label
     | JCC (cond, label) -> Printf.sprintf "b.%s %s" (format_cond cond) label
     | CALL (_, Some name) -> Printf.sprintf "bl %s" (format_symbol name)
@@ -123,7 +124,41 @@ module CodeGenerator (M: MACHINE) = struct
     | ADJUST_SP off -> 
       if off < 0L then Printf.sprintf "sub sp, sp, #%Ld" (Int64.neg off)
       else Printf.sprintf "add sp, sp, #%Ld" off
-    | _ -> "TODO"
+    | DIV (dst, src1, src2) -> Printf.sprintf "sdiv %s, %s, %s" (fmt_reg dst) (fmt_reg src1) (fmt_reg src2)
+    | UDIV (dst, src1, src2) -> Printf.sprintf "udiv %s, %s, %s" (fmt_reg dst) (fmt_reg src1) (fmt_reg src2)
+    | NEG (dst, src) -> Printf.sprintf "neg %s, %s" (fmt_reg dst) (fmt_reg src)
+    | NOT (dst, src) -> Printf.sprintf "mvn %s, %s" (fmt_reg dst) (fmt_reg src)
+    | SHL (dst, src1, src2) -> Printf.sprintf "lsl %s, %s, %s" (fmt_reg dst) (fmt_reg src1) (fmt_reg src2)
+    | SHR (dst, src1, src2) -> Printf.sprintf "lsr %s, %s, %s" (fmt_reg dst) (fmt_reg src1) (fmt_reg src2)
+    | SAR (dst, src1, src2) -> Printf.sprintf "asr %s, %s, %s" (fmt_reg dst) (fmt_reg src1) (fmt_reg src2)
+    | TEST (src1, src2) -> Printf.sprintf "tst %s, %s" (fmt_reg src1) (fmt_reg src2)
+    | FADD (dst, src1, src2) -> Printf.sprintf "fadd %s, %s, %s" (fmt_reg dst) (fmt_reg src1) (fmt_reg src2)
+    | FSUB (dst, src1, src2) -> Printf.sprintf "fsub %s, %s, %s" (fmt_reg dst) (fmt_reg src1) (fmt_reg src2)
+    | FMUL (dst, src1, src2) -> Printf.sprintf "fmul %s, %s, %s" (fmt_reg dst) (fmt_reg src1) (fmt_reg src2)
+    | FDIV (dst, src1, src2) -> Printf.sprintf "fdiv %s, %s, %s" (fmt_reg dst) (fmt_reg src1) (fmt_reg src2)
+    | FCMP (src1, src2) -> Printf.sprintf "fcmp %s, %s" (fmt_reg src1) (fmt_reg src2)
+    | FMOV (dst, src) -> Printf.sprintf "fmov %s, %s" (fmt_reg dst) (fmt_reg src)
+    | CVT_I2F (dst, src, int_size, fp_size) -> 
+      let op = if fp_size = 4 then "scvtf" else "scvtf" in  (* Same instruction, different register size *)
+      Printf.sprintf "%s %s, %s" op (fmt_reg dst) (fmt_reg src)
+    | CVT_F2I (dst, src, fp_size, int_size) -> 
+      Printf.sprintf "fcvtzs %s, %s" (fmt_reg dst) (fmt_reg src)
+    | CVT_F2F (dst, src, from_size, to_size) ->
+      if from_size = 4 && to_size = 8 then
+        Printf.sprintf "fcvt %s, %s" (fmt_reg dst) (fmt_reg src)
+      else if from_size = 8 && to_size = 4 then  
+        Printf.sprintf "fcvt %s, %s" (fmt_reg dst) (fmt_reg src)
+      else
+        Printf.sprintf "fmov %s, %s" (fmt_reg dst) (fmt_reg src)
+    | EXT (dst, src, from_size, is_signed) ->
+      let op = match from_size, is_signed with
+        | 1, true -> "sxtb" | 1, false -> "uxtb"
+        | 2, true -> "sxth" | 2, false -> "uxth"
+        | 4, true -> "sxtw" | 4, false -> "mov"  (* mov acts as zero-extend on ARM64 *)
+        | _ -> "mov"
+      in
+      Printf.sprintf "%s %s, %s" op (fmt_reg dst) (fmt_reg src)
+    | _ -> "TODO"  (* For any truly unhandled operations *)
   
   let format_machine_instr ?(format_symbol=(fun x -> x)) (instr: machine_instr) : string =
     let label_str = match instr.label with

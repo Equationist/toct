@@ -211,11 +211,11 @@ let arm64_gep_pattern =
   }
 
 (* Pattern for integer comparison *)
-let make_arm64_icmp_pattern pred =
+let make_arm64_icmp_pattern pred ty =
   {
     pir_pattern = Instructions.Icmp (pred,
-      Values.create_simple_value (Types.Scalar Types.I64),
-      Values.create_simple_value (Types.Scalar Types.I64));
+      Values.create_simple_value ty,
+      Values.create_simple_value ty);
     cost = 1;
     emit = (fun reg_alloc result_val operands ->
       let dst = match result_val with
@@ -236,7 +236,7 @@ let make_arm64_icmp_pattern pred =
       in
       [
         { label = None; op = CMP (src1, src2); comment = Some "compare" };
-        { label = None; op = MOV (dst, xzr); comment = Some "cset (conditional set)" };
+        { label = None; op = CSET (dst, cond); comment = Some "conditional set" };
       ]
     );
     constraints = [RegClass GPR; RegClass GPR; RegClass GPR];
@@ -410,12 +410,20 @@ let arm64_call_pattern has_result =
       (* First operand is the function pointer, rest are arguments *)
       match operands with
       | fn_ptr :: args ->
+        (* Extract function name from the function pointer's attributes *)
+        let func_name = 
+          match Attributes.get_opt "function_name" (Values.get_attrs fn_ptr) with
+          | Some (Attributes.String name) -> name
+          | _ -> 
+            (* Fallback to generic name or error *)
+            Printf.sprintf "func_%d" (Values.get_id fn_ptr)
+        in
         let arg_regs = List.map reg_alloc args in
         let result_reg = match result_val with
           | Some v -> Some (reg_alloc v)
           | None -> None
         in
-        emit_arm64_call "function" arg_regs result_reg
+        emit_arm64_call func_name arg_regs result_reg
       | _ -> failwith "Call expects at least a function pointer"
     );
     constraints = RegClass GPR :: (if has_result then [RegClass GPR] else []);
@@ -795,17 +803,36 @@ let arm64_patterns = [
   make_arm64_bitcount_pattern Instructions.Popcnt (Types.Scalar Types.I32);
   make_arm64_bitcount_pattern Instructions.Popcnt (Types.Scalar Types.I64);
   
-  (* Comparisons *)
-  make_arm64_icmp_pattern Instructions.Eq;
-  make_arm64_icmp_pattern Instructions.Ne;
-  make_arm64_icmp_pattern Instructions.Slt;
-  make_arm64_icmp_pattern Instructions.Sle;
-  make_arm64_icmp_pattern Instructions.Sgt;
-  make_arm64_icmp_pattern Instructions.Sge;
-  make_arm64_icmp_pattern Instructions.Ult;
-  make_arm64_icmp_pattern Instructions.Ule;
-  make_arm64_icmp_pattern Instructions.Ugt;
-  make_arm64_icmp_pattern Instructions.Uge;
+  (* Comparisons - for different integer sizes *)
+  (* I32 comparisons *)
+  make_arm64_icmp_pattern Instructions.Eq (Types.Scalar Types.I32);
+  make_arm64_icmp_pattern Instructions.Ne (Types.Scalar Types.I32);
+  make_arm64_icmp_pattern Instructions.Slt (Types.Scalar Types.I32);
+  make_arm64_icmp_pattern Instructions.Sle (Types.Scalar Types.I32);
+  make_arm64_icmp_pattern Instructions.Sgt (Types.Scalar Types.I32);
+  make_arm64_icmp_pattern Instructions.Sge (Types.Scalar Types.I32);
+  make_arm64_icmp_pattern Instructions.Ult (Types.Scalar Types.I32);
+  make_arm64_icmp_pattern Instructions.Ule (Types.Scalar Types.I32);
+  make_arm64_icmp_pattern Instructions.Ugt (Types.Scalar Types.I32);
+  make_arm64_icmp_pattern Instructions.Uge (Types.Scalar Types.I32);
+  
+  (* I64 comparisons *)
+  make_arm64_icmp_pattern Instructions.Eq (Types.Scalar Types.I64);
+  make_arm64_icmp_pattern Instructions.Ne (Types.Scalar Types.I64);
+  make_arm64_icmp_pattern Instructions.Slt (Types.Scalar Types.I64);
+  make_arm64_icmp_pattern Instructions.Sle (Types.Scalar Types.I64);
+  make_arm64_icmp_pattern Instructions.Sgt (Types.Scalar Types.I64);
+  make_arm64_icmp_pattern Instructions.Sge (Types.Scalar Types.I64);
+  make_arm64_icmp_pattern Instructions.Ult (Types.Scalar Types.I64);
+  make_arm64_icmp_pattern Instructions.Ule (Types.Scalar Types.I64);
+  make_arm64_icmp_pattern Instructions.Ugt (Types.Scalar Types.I64);
+  make_arm64_icmp_pattern Instructions.Uge (Types.Scalar Types.I64);
+  
+  (* I8 and I16 comparisons *)
+  make_arm64_icmp_pattern Instructions.Eq (Types.Scalar Types.I8);
+  make_arm64_icmp_pattern Instructions.Ne (Types.Scalar Types.I8);
+  make_arm64_icmp_pattern Instructions.Eq (Types.Scalar Types.I16);
+  make_arm64_icmp_pattern Instructions.Ne (Types.Scalar Types.I16);
   
   (* Floating-point arithmetic *)
   make_arm64_float_binop_pattern Instructions.Fadd (Types.Scalar Types.F32);

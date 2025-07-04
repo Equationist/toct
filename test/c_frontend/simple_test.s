@@ -9,7 +9,7 @@ _main:
 .cfi_startproc
 	sub sp, sp, #16	; allocate 16 bytes
 entry:
-	mov w0, sp	; load zero
+	mov w0, wzr	; load zero
 	add sp, sp, #16	; deallocate stack frame
 	ret	; return
 .cfi_endproc
