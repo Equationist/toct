@@ -1,4 +1,4 @@
-# dune build examples/c_frontend/ccc.bc
+# dune exec examples/c_frontend/ccc.bc -- test/c_frontend/test_zero_constant_64_simple.c -o test/c_frontend/test_zero_constant_64_simple.s
 # OCAMLPARAM: unset
 # Shared cache: enabled-except-user-rules
 # Shared cache location: /Users/ummonkarpe/.cache/dune/db
@@ -13,7 +13,5 @@
 #  ; build_dir = In_build_dir "default"
 #  ; instrument_with = []
 #  }
-$ /Users/ummonkarpe/.opam/4.14.2/bin/ocamlc.opt -config > /var/folders/7_/zrr90vd15tj2szg8rtjyqtzh0000gn/T/dune_331fcb_output
-$ (cd _build/default && /Users/ummonkarpe/.opam/4.14.2/bin/ocamlc.opt -w @1..3@5..28@31..39@43@46..47@49..57@61..62@67@69-40 -strict-sequence -strict-formats -short-paths -keep-locs -g -bin-annot -I examples/c_frontend/.ccc.eobjs/byte -I examples/c_frontend/.c_frontend.objs/byte -I lib/backend/.compilerkit_backend.objs/byte -I lib/common/.compilerkit_common.objs/byte -I lib/frontend/.compilerkit_frontend.objs/byte -I lib/pir/.compilerkit_pir.objs/byte -no-alias-deps -opaque -o examples/c_frontend/.ccc.eobjs/byte/dune__exe__Ccc.cmi -c -intf examples/c_frontend/ccc.mli)
-$ (cd _build/default && /Users/ummonkarpe/.opam/4.14.2/bin/ocamlc.opt -w @1..3@5..28@31..39@43@46..47@49..57@61..62@67@69-40 -strict-sequence -strict-formats -short-paths -keep-locs -g -bin-annot -I examples/c_frontend/.ccc.eobjs/byte -I examples/c_frontend/.c_frontend.objs/byte -I lib/backend/.compilerkit_backend.objs/byte -I lib/common/.compilerkit_common.objs/byte -I lib/frontend/.compilerkit_frontend.objs/byte -I lib/pir/.compilerkit_pir.objs/byte -intf-suffix .ml -no-alias-deps -opaque -o examples/c_frontend/.ccc.eobjs/byte/dune__exe__Ccc.cmo -c -impl examples/c_frontend/ccc.ml)
-$ (cd _build/default && /Users/ummonkarpe/.opam/4.14.2/bin/ocamlc.opt -w @1..3@5..28@31..39@43@46..47@49..57@61..62@67@69-40 -strict-sequence -strict-formats -short-paths -keep-locs -g -o examples/c_frontend/ccc.bc /Users/ummonkarpe/.opam/4.14.2/lib/ocaml/unix.cma lib/common/compilerkit_common.cma lib/pir/compilerkit_pir.cma lib/frontend/compilerkit_frontend.cma examples/c_frontend/c_frontend.cma lib/backend/compilerkit_backend.cma examples/c_frontend/.ccc.eobjs/byte/dune__exe__Ccc.cmo)
+$ /Users/ummonkarpe/.opam/4.14.2/bin/ocamlc.opt -config > /var/folders/7_/zrr90vd15tj2szg8rtjyqtzh0000gn/T/dune_8d1abb_output
+$ (cd /Users/ummonkarpe/Development/compilerkit && /Users/ummonkarpe/Development/compilerkit/_build/default/examples/c_frontend/ccc.bc test/c_frontend/test_zero_constant_64_simple.c -o test/c_frontend/test_zero_constant_64_simple.s)

@@ -907,9 +907,9 @@ let materialize_arm64_constant value ty dst =
   match ty with
   | Types.Scalar scalar_ty ->
     if value = 0L then
-      (* Use zero register - wzr for 32-bit, xzr for 64-bit *)
-      let zr = if dst.reg_size = 4 then make_gpr 31 4 else xzr in
-      [{ label = None; op = MOV (dst, zr); comment = Some "load zero" }]
+      (* For zero, use MOV_IMM with 0 instead of MOV from zero register *)
+      (* This avoids confusion with SP vs XZR/WZR in the assembly output *)
+      [{ label = None; op = MOV_IMM (dst, 0L); comment = Some "load zero" }]
     else
       (* For simple cases, just use MOV_IMM which will be expanded during assembly *)
       [{ label = None; op = MOV_IMM (dst, value); comment = Some (Printf.sprintf "load constant %Ld" value) }]

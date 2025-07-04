@@ -93,7 +93,13 @@ module CodeGenerator (M: MACHINE) = struct
     let fmt_reg r = format_reg ~in_op:(Some op) r in
     match op with
     | MOV (dst, src) -> Printf.sprintf "mov %s, %s" (fmt_reg dst) (fmt_reg src)
-    | MOV_IMM (dst, imm) -> Printf.sprintf "mov %s, #%Ld" (fmt_reg dst) imm
+    | MOV_IMM (dst, imm) -> 
+      (* On ARM64, use wzr/xzr for zero instead of immediate *)
+      if M.config.word_size = W64 && imm = 0L then
+        let zr = if dst.reg_size = 4 then "wzr" else "xzr" in
+        Printf.sprintf "mov %s, %s" (fmt_reg dst) zr
+      else
+        Printf.sprintf "mov %s, #%Ld" (fmt_reg dst) imm
     | LOAD (dst, addr, size) -> 
       let suffix = match size with 1 -> "b" | 2 -> "h" | 4 -> "w" | _ -> "" in
       Printf.sprintf "ldr%s %s, %s" suffix (fmt_reg dst) (format_addr_mode addr)
