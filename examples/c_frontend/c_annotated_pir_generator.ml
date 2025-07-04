@@ -108,7 +108,7 @@ let c_cmp_to_pir_icmp_annotated c_op c_type =
 (** Generate PIR for annotated expressions *)
 let rec gen_annotated_expr ctx annotated_expr =
   let expr = get_node annotated_expr in
-  let info = get_info annotated_expr in
+  let _info = get_info annotated_expr in
   
   match expr with
   | IntLit (value, _) ->
@@ -132,8 +132,9 @@ let rec gen_annotated_expr ctx annotated_expr =
        | None -> failwith ("Undeclared identifier: " ^ name))
 
   | BinOp (op, left, right) ->
-    let left_val = gen_annotated_expr ctx (annotate left empty_c_info) in
-    let right_val = gen_annotated_expr ctx (annotate right empty_c_info) in
+    (* Generate PIR for raw sub-expressions *)
+    let left_val = gen_annotated_expr_raw ctx left in
+    let right_val = gen_annotated_expr_raw ctx right in
     
     (match op with
      (* Arithmetic and bitwise operators *)
@@ -155,7 +156,7 @@ let rec gen_annotated_expr ctx annotated_expr =
      
      (* Comparison operators *)
      | Lt | Gt | Le | Ge | Eq | Ne ->
-       (* Infer type from operands */
+       (* Infer type from operands *)
        let operand_type = match get_type left_val with
          | Scalar I8 -> Int c_char
          | Scalar I16 -> Int c_short
@@ -181,6 +182,12 @@ let rec gen_annotated_expr ctx annotated_expr =
   | _ ->
     failwith "Expression not implemented for annotated AST"
 
+(** Generate PIR for raw expressions (creates minimal annotations) *)
+and gen_annotated_expr_raw ctx expr =
+  (* Create a minimal annotation and process *)
+  let annotated = annotate expr empty_c_info in
+  gen_annotated_expr ctx annotated
+
 (** Generate PIR for annotated statements *)
 let rec gen_annotated_stmt ctx annotated_stmt =
   let stmt = get_node annotated_stmt in
@@ -205,6 +212,40 @@ let rec gen_annotated_stmt ctx annotated_stmt =
      | None ->
        finish_block ctx (Ret None))
   
+  | IfStmt (cond_expr, then_stmt, else_stmt_opt) ->
+    (* Generate condition *)
+    let cond_val = gen_annotated_expr_raw ctx cond_expr in
+    
+    (* Create labels for branches *)
+    let then_label = fresh_label ctx in
+    let else_label = fresh_label ctx in
+    let end_label = fresh_label ctx in
+    
+    (* Branch on condition *)
+    finish_block ctx (Br (cond_val, then_label, match else_stmt_opt with Some _ -> else_label | None -> end_label));
+    
+    (* Generate then branch *)
+    start_block ctx then_label;
+    gen_annotated_stmt ctx (annotate then_stmt empty_c_info);
+    (* Only add branch if block wasn't already terminated *)
+    (match ctx.current_block with
+     | Some _ -> finish_block ctx (Jmp end_label)
+     | None -> ());
+    
+    (* Generate else branch if present *)
+    (match else_stmt_opt with
+     | Some else_stmt ->
+       start_block ctx else_label;
+       gen_annotated_stmt ctx (annotate else_stmt empty_c_info);
+       (* Only add branch if block wasn't already terminated *)
+       (match ctx.current_block with
+        | Some _ -> finish_block ctx (Jmp end_label)
+        | None -> ())
+     | None -> ());
+    
+    (* Continue with end block *)
+    start_block ctx end_label
+  
   | _ -> failwith "Statement not implemented for annotated AST"
 
 (** Generate PIR for annotated block items *)
@@ -216,9 +257,32 @@ and gen_annotated_block_item ctx annotated_item =
     let annotated_stmt = annotate stmt empty_c_info in
     gen_annotated_stmt ctx annotated_stmt
     
-  | Decl _ ->
-    (* Declarations should already be processed during annotation *)
-    ()
+  | Decl decl ->
+    (* Process declaration - create variables in value map *)
+    let { storage = _; specs; quals; init_decls } = decl in
+    let base_type = resolve_type_specs ctx.symbol_table.type_env specs quals in
+    
+    List.iter (fun init_decl ->
+      let { decl = declarator; init } = init_decl in
+      let var_type, var_name = process_declarator ctx.symbol_table.type_env base_type quals declarator in
+      
+      (* Create PIR value for the variable *)
+      (match c_type_to_pir_type var_type with
+       | Some pir_ty ->
+         let var_value = create_simple_value pir_ty in
+         Hashtbl.add ctx.value_map var_name var_value;
+         
+         (* If there's an initializer, generate code for it *)
+         (match init with
+          | Some (ExprInit init_expr) ->
+            let init_val = gen_annotated_expr_raw ctx init_expr in
+            (* For now, just update the value map - proper SSA would need alloca/store *)
+            Hashtbl.replace ctx.value_map var_name init_val
+          | Some (ListInit _) ->
+            failwith "List initializers not yet implemented"
+          | None -> ())
+       | None -> failwith ("Cannot convert variable type to PIR: " ^ string_of_c_type var_type))
+    ) init_decls
 
 (** Generate PIR for annotated function definition *)
 let gen_annotated_func_def ctx annotated_func_def =

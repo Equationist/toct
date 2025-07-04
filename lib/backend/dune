@@ -2,6 +2,7 @@
  (public_name compilerkit.backend)
  (name compilerkit_backend)
  (modes byte)
+ (flags (:standard -w -26-27))
  (modules compilerkit_backend machine instruction_selection register_allocator 
           x86_64_backend arm64_backend codegen dominance ssa_block_params ssa_verify
           macho_writer)
