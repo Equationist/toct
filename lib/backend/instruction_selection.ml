@@ -130,7 +130,7 @@ module InstructionSelector (M: MACHINE) = struct
       child_code @ node_code
   
   (* Select instructions for a basic block *)
-  let select_block (block: Instructions.basic_block) : machine_instr list =
+  let select_block (frame: frame_info) (block: Instructions.basic_block) : machine_instr list =
     let reg_alloc = ref [] in
     let next_reg = ref 0 in
     
@@ -162,11 +162,21 @@ module InstructionSelector (M: MACHINE) = struct
     
     (* Handle terminator *)
     let term_code = match block.terminator with
-      | Instructions.Ret None -> [{ label = None; op = RET; comment = Some "return void" }]
+      | Instructions.Ret None -> 
+        (* For void return, emit epilogue then return *)
+        M.emit_epilogue frame @ [{ label = None; op = RET; comment = Some "return void" }]
       | Instructions.Ret (Some v) ->
         let r = get_reg v in
-        [{ label = None; op = MOV (make_gpr 0 M.config.ptr_size, r); comment = Some "return value" };
-         { label = None; op = RET; comment = None }]
+        let x0 = make_gpr 0 M.config.ptr_size in
+        (* Only emit MOV if value is not already in x0 *)
+        let mov_instrs = 
+          if r.reg_index = 0 && r.reg_class = GPR then
+            [] (* Value already in x0, no move needed *)
+          else
+            [{ label = None; op = MOV (x0, r); comment = Some "return value" }]
+        in
+        (* First move return value to x0, then emit epilogue *)
+        mov_instrs @ M.emit_epilogue frame @ [{ label = None; op = RET; comment = Some "return" }]
       | Instructions.Br (cond, then_lbl, else_lbl) ->
         let r = get_reg cond in
         [{ label = None; op = TEST (r, r); comment = Some "test condition" };
@@ -197,17 +207,15 @@ module InstructionSelector (M: MACHINE) = struct
     (* Select instructions for each block *)
     let blocks_code = List.concat (List.map (fun block ->
       (* First instruction of block gets the label *)
-      let block_instrs = select_block block in
+      let block_instrs = select_block frame block in
       match block_instrs with
       | [] -> []
       | first :: rest -> 
         { first with label = Some block.label } :: rest
     ) func.blocks) in
     
-    (* Emit epilogue (will be placed by control flow) *)
-    let epilogue = M.emit_epilogue frame in
-    
-    prologue @ blocks_code @ epilogue
+    (* Note: epilogue is now emitted as part of return instructions *)
+    prologue @ blocks_code
 end
 
 (* Helper to create common patterns *)

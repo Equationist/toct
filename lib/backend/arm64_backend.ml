@@ -257,7 +257,6 @@ let emit_arm64_epilogue frame =
       comment = Some "restore FP and LR with post-increment" };
     { label = None; op = LOAD (x30, Offset (sp, Int64.neg 8L), 8); 
       comment = None };
-    { label = None; op = RET; comment = Some "return" };
   ]
 
 (* Pattern for return-like instruction - using a dummy constant for pattern matching *)
