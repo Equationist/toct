@@ -74,10 +74,10 @@ module Macros = struct
   (* Expand function-like macro *)
   let expand_function_macro _state macro args =
     match macro.params with
-    | None -> Error ("Not a function-like macro", span (create "" 0 0 0) (create "" 0 0 0))
+    | None -> Result.Error ("Not a function-like macro", span dummy dummy)
     | Some params ->
         if List.length params <> List.length args then
-          Error ("Macro argument count mismatch", span (create "" 0 0 0) (create "" 0 0 0))
+          Result.Error ("Macro argument count mismatch", span dummy dummy)
         else
           (* Simple parameter substitution *)
           let substitutions = List.combine params args in
@@ -98,7 +98,7 @@ module Macros = struct
             in
             replace body
           ) macro.body substitutions in
-          Ok result
+          Result.Ok result
 
   (* Standard predefined macros *)
   let add_standard_macros state =
@@ -108,15 +108,15 @@ module Macros = struct
         [|"Jan";"Feb";"Mar";"Apr";"May";"Jun";"Jul";"Aug";"Sep";"Oct";"Nov";"Dec"|].(date.Unix.tm_mon)
         date.Unix.tm_mday
         (date.Unix.tm_year + 1900))
-      (span (create "" 0 0 0) (create "" 0 0 0));
+      (span dummy dummy);
     define state "__TIME__" None
       (Printf.sprintf "\"%02d:%02d:%02d\""
         date.Unix.tm_hour date.Unix.tm_min date.Unix.tm_sec)
-      (span (create "" 0 0 0) (create "" 0 0 0));
+      (span dummy dummy);
     define state "__FILE__" None "\"<unknown>\"" 
-      (span (create "" 0 0 0) (create "" 0 0 0));
+      (span dummy dummy);
     define state "__LINE__" None "0"
-      (span (create "" 0 0 0) (create "" 0 0 0))
+      (span dummy dummy)
 end
 
 (* Conditional compilation *)
@@ -155,7 +155,7 @@ module Conditionals = struct
   let check_balance state =
     if state.conditional_stack <> [] then
       report state.reporter Error 
-        (span (create "" 0 0 0) (create "" 0 0 0))
+        (span dummy dummy)
         "Unterminated conditional compilation directive" []
 end
 
@@ -186,10 +186,10 @@ module Includes = struct
     | None ->
         report state.reporter Error span 
           (Printf.sprintf "Cannot find include file: %s" filename) [];
-        Error ()
+        Result.Error ()
     | Some path ->
         if Hashtbl.mem state.included_files path then
-          Ok ()  (* Already included - include guard *)
+          Result.Ok ()  (* Already included - include guard *)
         else begin
           Hashtbl.add state.included_files path ();
           process_file state path
@@ -212,8 +212,8 @@ module Token_preprocessing = struct
       | tok :: rest ->
           if is_directive_token tok then
             match process_directive state tok rest with
-            | Ok ((), remaining) -> process_tokens remaining acc
-            | Error remaining -> process_tokens remaining acc
+            | Result.Ok ((), remaining) -> process_tokens remaining acc
+            | Result.Error remaining -> process_tokens remaining acc
           else if Conditionals.is_skipping state then
             process_tokens rest acc
           else
@@ -234,8 +234,8 @@ module Line_preprocessing = struct
       | line :: rest ->
           if is_directive_line line then
             match process_directive_line state line with
-            | Ok state' -> process rest acc
-            | Error state' -> process rest acc
+            | Result.Ok _state' -> process rest acc
+            | Result.Error _state' -> process rest acc
           else if Conditionals.is_skipping state then
             process rest acc
           else

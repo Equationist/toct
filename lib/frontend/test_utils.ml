@@ -1,7 +1,6 @@
 (* Common test utilities for frontend testing *)
 
 open Error_reporter
-open Position
 
 (* Test result type *)
 type test_result = 
@@ -51,25 +50,27 @@ module Lexing = struct
   (* Lex a string and collect tokens *)
   let lex_string lexer_fn source =
     let reporter = Error_reporter.create () in
-    let tokens = lexer_fn reporter source in
-    if has_errors reporter then
-      Error (Failure "Lexing errors")
-    else
-      Ok tokens
+    try
+      let tokens = lexer_fn reporter source in
+      if has_errors reporter then
+        None
+      else
+        Some tokens
+    with _e -> None
 
   (* Test that lexing succeeds *)
   let test_lex_success lexer_fn source =
     match lex_string lexer_fn source with
-    | Ok _ -> Pass
-    | Error e -> Error e
+    | Some _ -> Pass
+    | None -> Error (Failure "Lexing failed")
 
   (* Test that lexing produces expected tokens *)
   let test_lex_tokens lexer_fn source expected =
     match lex_string lexer_fn source with
-    | Ok tokens ->
+    | Some tokens ->
         if tokens = expected then Pass
         else Fail "Token mismatch"
-    | Error e -> Error e
+    | None -> Error (Failure "Lexing failed")
 end
 
 (* Test parsing *)
@@ -77,23 +78,25 @@ module Parsing = struct
   (* Parse tokens and collect AST *)
   let parse_tokens parser_fn tokens =
     let reporter = Error_reporter.create () in
-    let ast = parser_fn reporter tokens in
-    if has_errors reporter then
-      Error (Failure "Parsing errors")
-    else
-      Ok ast
+    try
+      let ast = parser_fn reporter tokens in
+      if has_errors reporter then
+        None
+      else
+        Some ast
+    with _e -> None
 
   (* Test that parsing succeeds *)
   let test_parse_success parser_fn tokens =
     match parse_tokens parser_fn tokens with
-    | Ok _ -> Pass
-    | Error e -> Error e
+    | Some _ -> Pass
+    | None -> Error (Failure "Parsing failed")
 
   (* Test that parsing fails *)
   let test_parse_failure parser_fn tokens =
     match parse_tokens parser_fn tokens with
-    | Ok _ -> Fail "Expected parse failure"
-    | Error _ -> Pass
+    | Some _ -> Fail "Expected parse failure"
+    | None -> Pass
 end
 
 (* Test diagnostics *)

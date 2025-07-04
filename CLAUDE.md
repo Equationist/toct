@@ -1,3 +1,3 @@
-Read the various md files. README.md describes the desired project. The other md files describe the the architecture an in progress implementation plan (which you will modify with your progress as you go). Think hard at every step, and commit your work at the end of every step. There may already be some un-checked-in files for the current step being worked on.
+Read the various md files. README.md describes the desired project. The other md files describe the architecture and the in progress implementation plan (which you will modify with your progress as you go). Think hard at every step, and commit your work at the end of every step. There may already be some un-checked-in files for the current step being worked on. There is also c89spec.html if you need to look something up about the C89 spec.
 
 Note: due to an odd architecture compatibility issue in OCaml, you likely will need to run in bytecode mode

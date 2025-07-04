@@ -1,7 +1,7 @@
 (library
  (name c_frontend)
- (libraries unix compilerkit.frontend)
- (modules preprocessor lexer ast parser c_symbol_table c_errors c_lexer_utils))
+ (libraries unix compilerkit.frontend compilerkit.pir)
+ (modules preprocessor lexer ast parser c_symbol_table c_errors c_lexer_utils c_type_system c_scoped_symbol_table c_type_checker c_pir_generator))
 
 (executable
  (name test_preprocessor)

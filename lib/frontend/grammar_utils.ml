@@ -163,7 +163,7 @@ module Declaration = struct
   type type_qualifier = Const | Volatile | Restrict
   
   (* Parse comma-separated declarators *)
-  let parse_declarator_list state parse_declarator separator to_string =
+  let parse_declarator_list state parse_declarator separator _to_string =
     let declarators = ref [] in
     match parse_declarator state with
     | Error _ -> []
