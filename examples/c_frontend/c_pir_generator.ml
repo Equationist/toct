@@ -87,7 +87,20 @@ let c_binop_to_pir_binop c_op c_type =
   | Ast.Mul, Float _ -> Fmul
   | Ast.Div, Float _ -> Fdiv
   | Ast.Mod, Float _ -> Frem
-  | _ -> failwith ("Unsupported binary operator: " ^ (match c_op with Ast.Add -> "Add" | _ -> "Other"))
+  | _ -> failwith ("Unsupported binary operator: " ^ (match c_op with 
+    | Ast.Add -> "Add" 
+    | Ast.Sub -> "Sub"
+    | Ast.Mul -> "Mul" 
+    | Ast.Div -> "Div"
+    | Ast.Mod -> "Mod"
+    | Ast.Assign -> "Assign"
+    | Ast.Lt -> "Lt"
+    | Ast.Gt -> "Gt"
+    | Ast.Le -> "Le"
+    | Ast.Ge -> "Ge"
+    | Ast.Eq -> "Eq"
+    | Ast.Ne -> "Ne"
+    | _ -> "Other"))
 
 (** Convert C comparison to PIR comparison *)
 let c_cmp_to_pir_icmp c_op c_type =
@@ -161,6 +174,7 @@ let rec gen_expr ctx expr expected_type =
     (match op with
      (* Arithmetic and bitwise operators *)
      | Add | Sub | Mul | Div | Mod | BitAnd | BitOr | BitXor | Shl | Shr ->
+       (* TODO: Proper type derivation needed *)
        let pir_op = c_binop_to_pir_binop op expected_type in
        let result_value = create_simple_value (get_type left_val) in
        emit_instr ctx ~result:result_value (Binop (pir_op, NoFlag, left_val, right_val));
@@ -436,8 +450,28 @@ and gen_block_items ctx = function
   | item :: rest ->
     (match item with
      | Stmt stmt -> gen_stmt ctx stmt
-     | Decl _decl -> () (* TODO: Handle declarations *));
+     | Decl decl -> gen_declaration ctx decl);
     gen_block_items ctx rest
+
+(** Generate PIR for declarations (add variables to symbol table) *)
+and gen_declaration ctx decl =
+  let { storage; specs; quals; init_decls } = decl in
+  
+  (* Resolve base type from type specifiers *)
+  let base_type = resolve_type_specs ctx.symbol_table.type_env specs quals in
+  
+  (* Process each declarator *)
+  List.iter (fun init_decl ->
+    let { decl = declarator; init = _ } = init_decl in
+    
+    (* Process declarator to get full type and name *)
+    let var_type, var_name = process_declarator ctx.symbol_table.type_env base_type quals declarator in
+    
+    (* Add symbol to symbol table *)
+    match define_symbol ctx.symbol_table var_name var_type storage ({Lexer.filename = "<unknown>"; line = 0; column = 0}) with
+    | Ok _ -> ()
+    | Error _ -> failwith ("Failed to define variable: " ^ var_name)
+  ) init_decls
 
 (** Generate PIR for function definition *)
 let gen_function_def ctx func_def =
@@ -446,6 +480,13 @@ let gen_function_def ctx func_def =
   (* Resolve function type *)
   let base_type = resolve_type_specs ctx.symbol_table.type_env specs quals in
   let func_type, func_name = process_declarator ctx.symbol_table.type_env base_type quals declarator in
+  
+  (* Find function symbol and enter its scope *)
+  (match lookup_symbol ctx.symbol_table func_name with
+   | Some func_symbol ->
+     enter_function_scope ctx.symbol_table func_symbol
+   | None ->
+     failwith ("Function not found in symbol table: " ^ func_name));
   
   (* Extract function parameters and return type *)
   let (return_ty, params, _varargs) = match func_type with
@@ -486,6 +527,10 @@ let gen_function_def ctx func_def =
   (* Create PIR function *)
   let pir_func = create_func func_name pir_params pir_return_ty (List.rev ctx.blocks) in
   ctx.current_function <- Some pir_func;
+  
+  (* Exit function scope *)
+  exit_function_scope ctx.symbol_table;
+  
   pir_func
 
 (** Generate PIR for translation unit *)

@@ -2,7 +2,7 @@
 
 open C_frontend
 
-let test_dir = Filename.concat (Sys.getcwd ()) "test/c_frontend"
+let test_dir = "../../test/c_frontend"
 
 let rec find_c_files dir =
   let entries = Sys.readdir dir in

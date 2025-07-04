@@ -105,6 +105,18 @@
  (modules test_annotation)
  (modes byte))
 
+(executable
+ (name test_annotated_pir)
+ (libraries c_frontend)
+ (modules test_annotated_pir)
+ (modes byte))
+
+(executable
+ (name test_simple_pir)
+ (libraries c_frontend)
+ (modules test_simple_pir)
+ (modes byte))
+
 (rule
  (alias runtest)
  (action (run ./test_preprocessor.exe)))

@@ -20,9 +20,9 @@ let test_file path =
 
 let () =
   let test_files = [
-    "/Users/ummonkarpe/Development/compilerkit/test/c_frontend/preprocessor/basic/simple_defines_no_includes.c";
-    "/Users/ummonkarpe/Development/compilerkit/test/c_frontend/preprocessor/functions/macro_expansion_test.c";
-    "/Users/ummonkarpe/Development/compilerkit/test/c_frontend/preprocessor/conditional/conditional_test.c";
+    "../../test/c_frontend/preprocessor/basic/simple_defines_no_includes.c";
+    "../../test/c_frontend/preprocessor/functions/macro_expansion_test.c";
+    "../../test/c_frontend/preprocessor/conditional/conditional_test.c";
   ] in
   
   List.iter test_file test_files

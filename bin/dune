@@ -19,3 +19,11 @@
  (modes byte)
  (flags (:standard -warn-error -26-27))
  (libraries unix str))
+
+(executable
+ (public_name ccc-proper)
+ (name ccc_proper)
+ (package compilerkit)
+ (modes byte)
+ (flags (:standard -warn-error -26-27))
+ (libraries unix str compilerkit_pir c_frontend))

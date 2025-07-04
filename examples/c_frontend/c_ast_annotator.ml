@@ -228,6 +228,18 @@ let annotate_func_def ctx func_def =
      (* Enter function scope *)
      enter_function_scope ctx.symbol_table func_symbol;
      
+     (* Add function parameters to the scope *)
+     (match func_type with
+      | Function (_, params, _) ->
+        List.iter (fun param ->
+          match param.param_name with
+          | Some name ->
+            let _ = define_symbol ctx.symbol_table name param.param_type [] {Lexer.filename = "<unknown>"; line = 0; column = 0} in
+            ()
+          | None -> ()
+        ) params
+      | _ -> ());
+     
      (* Annotate function body *)
      let _ = annotate_stmt ctx body in
      
@@ -255,8 +267,10 @@ let annotate_func_def ctx func_def =
 let annotate_external_decl ctx external_decl =
   match external_decl with
   | FuncDef func_def ->
-    let _ = annotate_func_def ctx func_def in
-    annotate external_decl empty_c_info
+    let annotated_func_def = annotate_func_def ctx func_def in
+    (* Extract the annotation info from the annotated function *)
+    let func_info = get_info annotated_func_def in
+    annotate external_decl func_info
 
   | Decl decl ->
     (* Process global declaration *)

@@ -1,3 +1,4 @@
+compilerkit_frontend__Ast_annotation
 compilerkit_frontend__Error_reporter
 compilerkit_frontend__Grammar_utils
 compilerkit_frontend__Lexer_utils

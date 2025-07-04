@@ -17,7 +17,7 @@ let test_parse_with_error_reporting filename =
     let token_list = Lexer.lex_string filename preprocessed in
     
     (* Create integrated parser *)
-    let parser_state = Parser_integrated.create_parser token_list in
+    let parser_state = Parser.create_parser token_list in
     
     (* Attempt to parse *)
     Printf.printf "Parsing %s with integrated error reporting...\n" filename;

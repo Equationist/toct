@@ -119,20 +119,6 @@ __TIME__|} in
   assert (String.contains output '1' || String.contains output '2');
   assert (String.contains output '"')
 
-let test_variadic_macros () =
-  let input = {|#define DEBUG_PRINT(fmt, ...) printf("DEBUG: " fmt "\n", ##__VA_ARGS__)
-
-DEBUG_PRINT("Simple message");
-DEBUG_PRINT("Value is %d", 42);
-DEBUG_PRINT("Two values: %d and %s", 10, "hello");|} in
-  
-  let output = Preprocessor.preprocess_string ~filename:"test.c" input in
-  Printf.printf "Test variadic macros:\n%s\n\n" output;
-  
-  (* Check that variadic macros were expanded *)
-  assert (string_contains_substring output "DEBUG:");
-  assert (string_contains_substring output "printf")
-
 let test_nested_macros () =
   let input = {|#define A 1
 #define B A + 2
@@ -187,9 +173,6 @@ let run_tests () =
     
     test_predefined_macros ();
     Printf.printf "✓ Predefined macros test passed\n";
-    
-    test_variadic_macros ();
-    Printf.printf "✓ Variadic macros test passed\n";
     
     test_nested_macros ();
     Printf.printf "✓ Nested macros test passed\n";

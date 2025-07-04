@@ -389,9 +389,42 @@ and check_block_items ctx = function
      | (Ok () : (unit, unit) result) -> check_block_items ctx rest
      | (Error () : (unit, unit) result) -> (Error () : (unit, unit) result))
 
-and check_declaration _ctx _decl =
-  (* TODO: Process declaration and add to symbol table *)
-  (Ok () : (unit, unit) result)
+and check_declaration ctx decl =
+  let { storage; specs; quals; init_decls } = decl in
+  
+  (* Resolve base type from type specifiers *)
+  let base_type = resolve_type_specs ctx.symbol_table.type_env specs quals in
+  
+  (* Process each declarator *)
+  let process_init_declarator init_decl =
+    let { decl = declarator; init } = init_decl in
+    
+    (* Process declarator to get full type and name *)
+    let var_type, var_name = process_declarator ctx.symbol_table.type_env base_type quals declarator in
+    
+    (* Check initializer if present *)
+    let init_result = match init with
+      | Some _init_expr ->
+        (* TODO: Check initializer type compatibility *)
+        (Ok () : (unit, unit) result)
+      | None -> (Ok () : (unit, unit) result)
+    in
+    
+    (* Add symbol to symbol table *)
+    (match init_result with
+     | (Ok () : (unit, unit) result) ->
+       (match define_symbol ctx.symbol_table var_name var_type storage ({Lexer.filename = "<unknown>"; line = 0; column = 0}) with
+        | Ok _ -> (Ok () : (unit, unit) result)
+        | Error _ -> (Error () : (unit, unit) result))
+     | (Error () : (unit, unit) result) -> (Error () : (unit, unit) result))
+  in
+  
+  (* Process all declarators *)
+  let results = List.map process_init_declarator init_decls in
+  if List.for_all (function (Ok () : (unit, unit) result) -> true | _ -> false) results then
+    (Ok () : (unit, unit) result)
+  else
+    (Error () : (unit, unit) result)
 
 (** Check function definition *)
 let check_function_def ctx func_def =
@@ -406,6 +439,19 @@ let check_function_def ctx func_def =
    | Ok func_symbol ->
      (* Enter function scope and check body *)
      enter_function_scope ctx.symbol_table func_symbol;
+     
+     (* Add function parameters to the scope *)
+     (match func_type with
+      | Function (_, params, _) ->
+        List.iter (fun param ->
+          match param.param_name with
+          | Some name ->
+            let _ = define_symbol ctx.symbol_table name param.param_type [] ({Lexer.filename = "<unknown>"; line = 0; column = 0}) in
+            ()
+          | None -> ()
+        ) params
+      | _ -> ());
+     
      let body_result = check_stmt ctx body in
      exit_function_scope ctx.symbol_table;
      (match body_result with (Ok () : (unit, unit) result) -> (Ok () : (unit, unit) result) | (Error () : (unit, unit) result) -> (Error () : (unit, unit) result))

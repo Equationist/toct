@@ -120,14 +120,14 @@ let rec gen_annotated_expr ctx annotated_expr =
     (match Hashtbl.find_opt ctx.value_map name with
      | Some value -> value
      | None ->
-       (* Variable not found in value map - should have been resolved during annotation *)
-       match info.variable_symbol with
+       (* Try to look up in symbol table *)
+       match lookup_symbol ctx.symbol_table name with
        | Some symbol ->
          (match c_type_to_pir_type symbol.c_type with
           | Some pir_ty ->
-            let result_value = create_simple_value pir_ty in
-            emit_instr ctx ~result:result_value (Memory (Load pir_ty));
-            result_value
+            let value = create_simple_value pir_ty in
+            Hashtbl.add ctx.value_map name value;
+            value
           | None -> failwith ("Cannot convert C type to PIR: " ^ string_of_c_type symbol.c_type))
        | None -> failwith ("Undeclared identifier: " ^ name))
 
@@ -138,9 +138,15 @@ let rec gen_annotated_expr ctx annotated_expr =
     (match op with
      (* Arithmetic and bitwise operators *)
      | Add | Sub | Mul | Div | Mod | BitAnd | BitOr | BitXor | Shl | Shr ->
-       let operand_type = match info.c_type with
-         | Some ty -> ty
-         | None -> failwith "Missing type information for binary operation"
+       (* Infer type from operands since annotations aren't preserved *)
+       let operand_type = match get_type left_val with
+         | Scalar I8 -> Int c_char
+         | Scalar I16 -> Int c_short
+         | Scalar I32 -> Int c_int
+         | Scalar I64 -> Int c_long
+         | Scalar F32 -> Float c_float
+         | Scalar F64 -> Float c_double
+         | _ -> Int c_int  (* Default to int *)
        in
        let pir_op = c_binop_to_pir_binop_annotated op operand_type in
        let result_value = create_simple_value (get_type left_val) in
@@ -149,9 +155,13 @@ let rec gen_annotated_expr ctx annotated_expr =
      
      (* Comparison operators *)
      | Lt | Gt | Le | Ge | Eq | Ne ->
-       let operand_type = match info.c_type with
-         | Some ty -> ty  
-         | None -> failwith "Missing type information for comparison"
+       (* Infer type from operands */
+       let operand_type = match get_type left_val with
+         | Scalar I8 -> Int c_char
+         | Scalar I16 -> Int c_short
+         | Scalar I32 -> Int c_int
+         | Scalar I64 -> Int c_long
+         | _ -> Int c_int  (* Default to int *)
        in
        let icmp_pred = c_cmp_to_pir_icmp_annotated op operand_type in
        let result_value = create_simple_value (Scalar I1) in
@@ -185,6 +195,15 @@ let rec gen_annotated_stmt ctx annotated_stmt =
   
   | CompoundStmt block_items ->
     List.iter (gen_annotated_block_item ctx) (List.map (fun item -> annotate item empty_c_info) block_items)
+  
+  | ReturnStmt expr_opt ->
+    (match expr_opt with
+     | Some expr ->
+       let annotated_expr = annotate expr empty_c_info in
+       let ret_val = gen_annotated_expr ctx annotated_expr in
+       finish_block ctx (Ret (Some ret_val))
+     | None ->
+       finish_block ctx (Ret None))
   
   | _ -> failwith "Statement not implemented for annotated AST"
 
@@ -245,17 +264,29 @@ let gen_annotated_func_def ctx annotated_func_def =
   ctx.blocks <- [];
   start_block ctx "entry";
   
-  (* Generate function body *)
-  let annotated_body = annotate body empty_c_info in
-  gen_annotated_stmt ctx annotated_body;
+  (* Add function parameters to value map *)
+  List.iter2 (fun param pir_param ->
+    match param.param_name with
+    | Some name ->
+      let (_, pir_ty) = pir_param in
+      let param_val = create_simple_value pir_ty in
+      Hashtbl.add ctx.value_map name param_val
+    | None -> ()
+  ) params pir_params;
   
-  (* Ensure function ends with return *)
-  (match return_ty with
-   | None -> finish_block ctx (Ret None)
+  (* Generate function body *)
+  gen_annotated_stmt ctx (annotate body empty_c_info);
+  
+  (* Ensure function ends with return if not already terminated *)
+  (match ctx.current_block with
    | Some _ ->
-     let default_val = create_simple_value (Scalar I32) in
-     emit_instr ctx ~result:default_val (Const (ConstInt (0L, I32)));
-     finish_block ctx (Ret (Some default_val)));
+     (match return_ty with
+      | None -> finish_block ctx (Ret None)
+      | Some _ ->
+        let default_val = create_simple_value (Scalar I32) in
+        emit_instr ctx ~result:default_val (Const (ConstInt (0L, I32)));
+        finish_block ctx (Ret (Some default_val)))
+   | None -> ());
   
   (* Create PIR function *)
   let pir_func = create_func func_name pir_params pir_return_ty (List.rev ctx.blocks) in
@@ -270,7 +301,9 @@ let gen_annotated_translation_unit symbol_table annotated_translation_unit =
     let external_decl = get_node annotated_external_decl in
     match external_decl with
     | FuncDef func_def -> 
-      let annotated_func_def = annotate func_def empty_c_info in
+      (* Use the annotation from the external declaration *)
+      let func_info = get_info annotated_external_decl in
+      let annotated_func_def = annotate func_def func_info in
       Some (gen_annotated_func_def ctx annotated_func_def)
     | Decl _decl -> None
   ) annotated_translation_unit in

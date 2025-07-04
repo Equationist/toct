@@ -46,10 +46,10 @@ def compile_and_run_with_ccc(c_file):
     
     # Get the CCC compiler path (relative to repo root)
     repo_root = Path(__file__).parent.parent.parent
-    ccc_path = repo_root / "_build/default/bin/ccc_enhanced.bc"
+    ccc_path = repo_root / "_build/default/bin/ccc_proper.bc"
     
     if not ccc_path.exists():
-        return None, f"CCC compiler not found at {ccc_path}. Run 'dune build bin/ccc_enhanced.bc' first."
+        return None, f"CCC compiler not found at {ccc_path}. Run 'dune build bin/ccc_proper.bc' first."
     
     # Compile with CCC
     compile_cmd = f"{ccc_path} {c_file} -o {exe_name}"

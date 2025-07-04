@@ -272,9 +272,19 @@ let rec process_declarator env base_type quals = function
   | DirectDecl (FuncDecl (direct_decl, param_list)) ->
     let ret_type, name = process_declarator env base_type quals (DirectDecl direct_decl) in
     let params, varargs = match param_list with
-      | Some (ParamList (_params, has_ellipsis)) ->
-        (* TODO: Process parameter declarations *)
-        [], has_ellipsis
+      | Some (ParamList (param_decls, has_ellipsis)) ->
+        let params = List.map (fun param_decl ->
+          let { param_specs; param_quals; param_decl = param_declarator } = param_decl in
+          let base_ty = resolve_type_specs env param_specs param_quals in
+          let param_ty, param_name = match param_declarator with
+            | Some decl -> 
+              let ty, name = process_declarator env base_ty param_quals decl in
+              ty, Some name
+            | None -> base_ty, None
+          in
+          { param_name; param_type = param_ty; param_quals = param_quals }
+        ) param_decls in
+        params, has_ellipsis
       | None -> [], false
     in
     Function (Some ret_type, params, varargs), name
@@ -304,6 +314,9 @@ let rec c_type_to_pir_type = function
     if List.length pir_fields = List.length fields then
       Some (Compilerkit_pir.Types.Struct pir_fields)
     else None
+  | Function (_, _, _) ->
+    (* Functions are represented as function pointers in PIR *)
+    Some Compilerkit_pir.Types.Ptr
   | _ -> None  (* Incomplete or unsupported types *)
 
 (** Pretty printing *)

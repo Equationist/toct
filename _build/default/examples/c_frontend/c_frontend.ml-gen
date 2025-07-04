@@ -3,14 +3,35 @@
 (** @canonical C_frontend.Ast *)
 module Ast = C_frontend__Ast
 
+(** @canonical C_frontend.C_annotated_ast *)
+module C_annotated_ast = C_frontend__C_annotated_ast
+
+(** @canonical C_frontend.C_annotated_pir_generator *)
+module C_annotated_pir_generator = C_frontend__C_annotated_pir_generator
+
+(** @canonical C_frontend.C_ast_annotator *)
+module C_ast_annotator = C_frontend__C_ast_annotator
+
 (** @canonical C_frontend.C_errors *)
 module C_errors = C_frontend__C_errors
 
 (** @canonical C_frontend.C_lexer_utils *)
 module C_lexer_utils = C_frontend__C_lexer_utils
 
+(** @canonical C_frontend.C_pir_generator *)
+module C_pir_generator = C_frontend__C_pir_generator
+
+(** @canonical C_frontend.C_scoped_symbol_table *)
+module C_scoped_symbol_table = C_frontend__C_scoped_symbol_table
+
 (** @canonical C_frontend.C_symbol_table *)
 module C_symbol_table = C_frontend__C_symbol_table
+
+(** @canonical C_frontend.C_type_checker *)
+module C_type_checker = C_frontend__C_type_checker
+
+(** @canonical C_frontend.C_type_system *)
+module C_type_system = C_frontend__C_type_system
 
 (** @canonical C_frontend.Lexer *)
 module Lexer = C_frontend__Lexer
