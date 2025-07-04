@@ -115,8 +115,6 @@ let rename_instruction (state: rename_state) (inst: I.instruction) : I.instructi
       in
       I.Call new_callop
     
-    | I.Phi operands ->
-      I.Phi (List.map (fun (v, label) -> (rename_value v, label)) operands)
     
     | I.Const _ as c -> c
     

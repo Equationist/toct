@@ -66,7 +66,7 @@ type vecop =
 type terminator = 
   | Ret of value option                  (* ret [val] *)
   | Br of value * string * string        (* br cond, then_label, else_label *)
-  | Jmp of string                        (* jmp label *)
+  | Jmp of string * value list           (* jmp label [args] - jump with block arguments *)
   | Switch of value * string * (const_value * string) list (* switch val, default, cases *)
   | Unreachable                          (* unreachable *)
 
@@ -86,7 +86,6 @@ type instr =
   | Cast of castop                                 (* Type conversions *)
   | Vector of vecop                                (* Vector operations *)
   | Call of callop                                 (* Function calls *)
-  | Phi of (value * string) list                   (* SSA phi node *)
   | Const of const_value                           (* Constant values *)
   | Freeze of value                                (* Convert undef/poison to arbitrary value *)
   | ExtractValue of value * int list               (* Extract from aggregate *)
@@ -165,8 +164,6 @@ let result_type_of_instr = function
      | _ -> None)
   | Vector (InsertLane (v, _, _)) -> Some (get_type v)
   | Call _ | Const _ -> None (* Type depends on specific context *)
-  | Phi ((v, _) :: _) -> Some (get_type v)     (* All phi values same type *)
-  | Phi [] -> None
   | Freeze v -> Some (get_type v)               (* Same type as frozen value *)
   | ExtractValue (_, _) -> None              (* Depends on aggregate type and indices *)
   | InsertValue (agg, _, _) -> Some (get_type agg) (* Returns modified aggregate *)
@@ -228,6 +225,10 @@ let string_of_terminator = function
   | Ret (Some v) -> Printf.sprintf "ret %s" (string_of_value v)
   | Br (cond, then_lbl, else_lbl) -> 
     Printf.sprintf "br %s, %s, %s" (string_of_value cond) then_lbl else_lbl
-  | Jmp lbl -> Printf.sprintf "jmp %s" lbl
+  | Jmp (lbl, args) -> 
+    if args = [] then
+      Printf.sprintf "jmp %s" lbl
+    else
+      Printf.sprintf "jmp %s(%s)" lbl (String.concat ", " (List.map string_of_value args))
   | Unreachable -> "unreachable"
   | Switch _ -> "switch ..." (* TODO: Complete switch pretty printing *)

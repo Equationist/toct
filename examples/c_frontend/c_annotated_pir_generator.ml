@@ -19,6 +19,10 @@ type annotated_pir_context = {
   mutable next_label: int;
   mutable break_targets: string list;
   mutable continue_targets: string list;
+  (* Track assignments per block for proper SSA form *)
+  mutable block_assignments: (string, (string * value) list) Hashtbl.t; (* block_label -> [(var_name, value)] *)
+  (* Track variable types for block parameters *)
+  mutable var_types: (string, ty) Hashtbl.t; (* var_name -> PIR type *)
 }
 
 (** Create PIR generation context *)
@@ -31,6 +35,8 @@ let create_annotated_pir_context symbol_table = {
   next_label = 0;
   break_targets = [];
   continue_targets = [];
+  block_assignments = Hashtbl.create 16;
+  var_types = Hashtbl.create 64;
 }
 
 (** Generate fresh label *)
@@ -42,6 +48,11 @@ let fresh_label ctx =
 (** Start new basic block *)
 let start_block ctx label =
   let block = create_block label [] [] (Ret None) in
+  ctx.current_block <- Some block
+
+(** Start new basic block with parameters *)
+let start_block_with_params ctx label params =
+  let block = create_block label params [] (Ret None) in
   ctx.current_block <- Some block
 
 (** Emit instruction to current block *)
@@ -140,6 +151,7 @@ let rec gen_annotated_expr ctx annotated_expr =
              | Some pir_ty ->
                let value = create_simple_value pir_ty in
                Hashtbl.add ctx.value_map name value;
+               Hashtbl.replace ctx.var_types name pir_ty;
                value
              | None -> failwith ("Cannot convert C type to PIR: " ^ string_of_c_type symbol.c_type)))
        | None -> failwith ("Undeclared identifier: " ^ name))
@@ -187,6 +199,18 @@ let rec gen_annotated_expr ctx annotated_expr =
        (match left with
         | Ident name ->
           Hashtbl.replace ctx.value_map name right_val;
+          (* Track variable type *)
+          Hashtbl.replace ctx.var_types name (get_type right_val);
+          (* Track assignment in current block *)
+          (match ctx.current_block with
+           | Some block ->
+             let assignments = 
+               match Hashtbl.find_opt ctx.block_assignments block.label with
+               | Some assns -> assns
+               | None -> []
+             in
+             Hashtbl.replace ctx.block_assignments block.label ((name, right_val) :: (List.filter (fun (n, _) -> n <> name) assignments))
+           | None -> ());
           right_val
         | ArrayRef (array_expr, index_expr) ->
           (* Generate array base address *)
@@ -277,6 +301,9 @@ let rec gen_annotated_stmt ctx annotated_stmt =
        finish_block ctx (Ret None))
   
   | IfStmt (cond_expr, then_stmt, else_stmt_opt) ->
+    (* Save current variable bindings *)
+    let initial_bindings = Hashtbl.copy ctx.value_map in
+    
     (* Generate condition *)
     let cond_val = gen_annotated_expr_raw ctx cond_expr in
     
@@ -291,24 +318,116 @@ let rec gen_annotated_stmt ctx annotated_stmt =
     (* Generate then branch *)
     start_block ctx then_label;
     gen_annotated_stmt ctx (annotate then_stmt empty_c_info);
-    (* Only add branch if block wasn't already terminated *)
-    (match ctx.current_block with
-     | Some _ -> finish_block ctx (Jmp end_label)
-     | None -> ());
+    let then_assignments = 
+      match Hashtbl.find_opt ctx.block_assignments then_label with
+      | Some assns -> assns
+      | None -> []
+    in
+    let then_terminated = ctx.current_block = None in
+    
+    (* Save then branch variable bindings *)
+    let then_bindings = Hashtbl.copy ctx.value_map in
+    
+    (* Restore initial bindings for else branch *)
+    ctx.value_map <- Hashtbl.copy initial_bindings;
     
     (* Generate else branch if present *)
-    (match else_stmt_opt with
+    let else_assignments, else_terminated, else_bindings = match else_stmt_opt with
      | Some else_stmt ->
        start_block ctx else_label;
        gen_annotated_stmt ctx (annotate else_stmt empty_c_info);
-       (* Only add branch if block wasn't already terminated *)
-       (match ctx.current_block with
-        | Some _ -> finish_block ctx (Jmp end_label)
-        | None -> ())
-     | None -> ());
+       let assns = 
+         match Hashtbl.find_opt ctx.block_assignments else_label with
+         | Some assns -> assns
+         | None -> []
+       in
+       let else_bindings = Hashtbl.copy ctx.value_map in
+       (assns, ctx.current_block = None, Some else_bindings)
+     | None -> ([], false, None)
+    in
     
-    (* Continue with end block *)
-    start_block ctx end_label
+    (* Collect variables that were assigned in either branch *)
+    let assigned_vars = 
+      let vars = Hashtbl.create 16 in
+      List.iter (fun (var, _) -> Hashtbl.replace vars var ()) then_assignments;
+      List.iter (fun (var, _) -> Hashtbl.replace vars var ()) else_assignments;
+      Hashtbl.fold (fun var _ acc -> var :: acc) vars []
+    in
+    
+    
+    (* Create block parameters for the merge block *)
+    let block_params = List.map (fun var ->
+      (* Get the type from var_types (tracked during assignment) *)
+      match Hashtbl.find_opt ctx.var_types var with
+      | Some ty -> (var, ty)
+      | None -> 
+        (* Try symbol table as fallback for function parameters *)
+        match lookup_symbol ctx.symbol_table var with
+        | Some sym -> 
+          (match c_type_to_pir_type sym.c_type with
+           | Some ty -> 
+             (* Cache it for future use *)
+             Hashtbl.replace ctx.var_types var ty;
+             (var, ty)
+           | None -> failwith ("Cannot determine PIR type for variable: " ^ var))
+        | None -> failwith ("Variable not found: " ^ var)
+    ) assigned_vars in
+    
+    (* Jump from then branch with appropriate values *)
+    if not then_terminated then begin
+      ctx.value_map <- then_bindings;
+      let then_args = List.map (fun var ->
+        match Hashtbl.find_opt ctx.value_map var with
+        | Some v -> 
+          v
+        | None -> 
+          (* Variable not assigned in this branch, use initial value *)
+          match Hashtbl.find_opt initial_bindings var with
+          | Some v -> v
+          | None -> failwith ("Variable not found: " ^ var)
+      ) assigned_vars in
+      finish_block ctx (Jmp (end_label, then_args))
+    end;
+    
+    (* Jump from else branch with appropriate values *)
+    if else_stmt_opt <> None && not else_terminated then begin
+      match else_bindings with
+      | Some bindings ->
+        ctx.value_map <- bindings;
+        let else_args = List.map (fun var ->
+          match Hashtbl.find_opt ctx.value_map var with
+          | Some v -> 
+            v
+          | None ->
+            (* Variable not assigned in this branch, use initial value *)
+            match Hashtbl.find_opt initial_bindings var with
+            | Some v -> v
+            | None -> failwith ("Variable not found: " ^ var)
+        ) assigned_vars in
+        finish_block ctx (Jmp (end_label, else_args))
+      | None -> ()
+    end;
+    
+    (* If there's no else branch, create one that jumps to end with initial values *)
+    if else_stmt_opt = None then begin
+      start_block ctx else_label;
+      let else_args = List.map (fun var ->
+        match Hashtbl.find_opt initial_bindings var with
+        | Some v -> v
+        | None -> failwith ("Variable not found: " ^ var)
+      ) assigned_vars in
+      finish_block ctx (Jmp (end_label, else_args))
+    end;
+    
+    (* Start merge block with parameters *)
+    start_block_with_params ctx end_label block_params;
+    
+    (* Update value map with block parameters *)
+    List.iter (fun (var, ty) ->
+      (* Create a new SSA value for each block parameter *)
+      let param_value = create_simple_value ty in
+      Hashtbl.replace ctx.value_map var param_value
+    ) block_params
   
   | WhileStmt (cond_expr, body_stmt) ->
     (* Create labels *)
@@ -317,7 +436,7 @@ let rec gen_annotated_stmt ctx annotated_stmt =
     let loop_end = fresh_label ctx in
     
     (* Jump to loop header *)
-    finish_block ctx (Jmp loop_header);
+    finish_block ctx (Jmp (loop_header, []));
     
     (* Loop header - evaluate condition *)
     start_block ctx loop_header;
@@ -329,7 +448,7 @@ let rec gen_annotated_stmt ctx annotated_stmt =
     gen_annotated_stmt ctx (annotate body_stmt empty_c_info);
     (* Jump back to header if block wasn't terminated *)
     (match ctx.current_block with
-     | Some _ -> finish_block ctx (Jmp loop_header)
+     | Some _ -> finish_block ctx (Jmp (loop_header, []))
      | None -> ());
     
     (* Continue after loop *)
@@ -349,7 +468,7 @@ let rec gen_annotated_stmt ctx annotated_stmt =
     let loop_end = fresh_label ctx in
     
     (* Jump to loop header *)
-    finish_block ctx (Jmp loop_header);
+    finish_block ctx (Jmp (loop_header, []));
     
     (* Loop header - evaluate condition *)
     start_block ctx loop_header;
@@ -368,7 +487,7 @@ let rec gen_annotated_stmt ctx annotated_stmt =
     gen_annotated_stmt ctx (annotate body_stmt empty_c_info);
     (* Jump to continue label if block wasn't terminated *)
     (match ctx.current_block with
-     | Some _ -> finish_block ctx (Jmp loop_continue)
+     | Some _ -> finish_block ctx (Jmp (loop_continue, []))
      | None -> ());
     
     (* Continue label - update expression *)
@@ -377,7 +496,7 @@ let rec gen_annotated_stmt ctx annotated_stmt =
      | Some update_expr -> 
        let _ = gen_annotated_expr_raw ctx update_expr in ()
      | None -> ());
-    finish_block ctx (Jmp loop_header);
+    finish_block ctx (Jmp (loop_header, []));
     
     (* Continue after loop *)
     start_block ctx loop_end
@@ -413,12 +532,14 @@ and gen_annotated_block_item ctx annotated_item =
          let array_ptr = create_simple_value Ptr in
          (* Alloca needs size and alignment - use default alignment of 8 *)
          emit_instr ctx ~result:array_ptr (Memory (Alloca (size_val, 8)));
-         Hashtbl.add ctx.value_map var_name array_ptr
+         Hashtbl.add ctx.value_map var_name array_ptr;
+         Hashtbl.replace ctx.var_types var_name Ptr
        | _ ->
          (match c_type_to_pir_type var_type with
           | Some pir_ty ->
             let var_value = create_simple_value pir_ty in
             Hashtbl.add ctx.value_map var_name var_value;
+            Hashtbl.replace ctx.var_types var_name pir_ty;
             
             (* If there's an initializer, generate code for it *)
             (match init with
@@ -495,8 +616,10 @@ let gen_annotated_func_def ctx annotated_func_def =
       let param_val = create_simple_value pir_ty in
       (* Add to value map using the C parameter name *)
       Hashtbl.add ctx.value_map name param_val;
+      Hashtbl.replace ctx.var_types name pir_ty;
       (* Also add using the PIR parameter name for consistency *)
-      Hashtbl.add ctx.value_map param_pir_name param_val
+      Hashtbl.add ctx.value_map param_pir_name param_val;
+      Hashtbl.replace ctx.var_types param_pir_name pir_ty
     | None -> ()
   ) params pir_params;
   

@@ -116,8 +116,26 @@ module CodeGenerator (M: MACHINE) = struct
     | XOR (dst, src1, src2) -> Printf.sprintf "eor %s, %s, %s" (fmt_reg dst) (fmt_reg src1) (fmt_reg src2)
     | CMP (src1, src2) -> Printf.sprintf "cmp %s, %s" (fmt_reg src1) (fmt_reg src2)
     | CSET (dst, cond) -> Printf.sprintf "cset %s, %s" (fmt_reg dst) (format_cond cond)
-    | JMP label -> Printf.sprintf "b %s" label
-    | JCC (cond, label) -> Printf.sprintf "b.%s %s" (format_cond cond) label
+    | JMP label -> 
+      (* Add .L prefix for internal labels *)
+      let formatted_label = 
+        if String.contains label 'L' && 
+           (String.length label = 0 || label.[0] <> '_') then
+          ".L" ^ label
+        else
+          label
+      in
+      Printf.sprintf "b %s" formatted_label
+    | JCC (cond, label) -> 
+      (* Add .L prefix for internal labels *)
+      let formatted_label = 
+        if String.contains label 'L' && 
+           (String.length label = 0 || label.[0] <> '_') then
+          ".L" ^ label
+        else
+          label
+      in
+      Printf.sprintf "b.%s %s" (format_cond cond) formatted_label
     | CALL (_, Some name) -> Printf.sprintf "bl %s" (format_symbol name)
     | RET -> "ret"
     | PUSH r -> Printf.sprintf "push %s" (fmt_reg r)

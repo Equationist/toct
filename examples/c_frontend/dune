@@ -191,6 +191,12 @@
  (modules test_printf_complex)
  (modes byte))
 
+(executable
+ (name test_debug_if)
+ (libraries c_frontend compilerkit.pir compilerkit.backend)
+ (modules test_debug_if)
+ (modes byte))
+
 (rule
  (alias runtest)
  (action (run ./test_preprocessor.exe)))

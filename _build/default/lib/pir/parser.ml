@@ -617,7 +617,16 @@ and parse_terminator state =
   | JMP ->
     advance state;
     let label = parse_ident state in
-    Jmp label
+    (* Parse optional block arguments *)
+    let args = 
+      if peek state 0 = LPAREN then begin
+        advance state; (* consume ( *)
+        let arg_list = parse_value_list state in
+        expect state RPAREN;
+        arg_list
+      end else []
+    in
+    Jmp (label, args)
   
   | SWITCH ->
     advance state;

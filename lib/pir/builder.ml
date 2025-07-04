@@ -180,7 +180,10 @@ let br cond then_label else_label =
   finalize_block (Br (cond, then_label, else_label))
 
 let jmp label =
-  finalize_block (Jmp label)
+  finalize_block (Jmp (label, []))
+
+let jmp_args label args =
+  finalize_block (Jmp (label, args))
 
 let unreachable () =
   finalize_block Unreachable

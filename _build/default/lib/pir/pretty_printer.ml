@@ -261,11 +261,6 @@ let pp_instr ctx = function
     (* TODO: Proper return type handling *)
     Printf.sprintf "%s.void %s, %s" (keyword ctx "tailcall") (pp_value ctx callee) args_str
   
-  | Phi phi_list ->
-    let phi_entries = List.map (fun (v, label) ->
-      Printf.sprintf "[%s, %s]" (pp_value ctx v) (label_color ctx label)
-    ) phi_list in
-    Printf.sprintf "%s %s" (keyword ctx "phi") (String.concat ", " phi_entries)
   
   | Const c -> pp_const_value ctx c
   
@@ -304,7 +299,12 @@ let pp_terminator ctx = function
       (pp_value ctx cond)
       (label_color ctx then_lbl)
       (label_color ctx else_lbl)
-  | Jmp lbl -> Printf.sprintf "%s %s" (keyword ctx "jmp") (label_color ctx lbl)
+  | Jmp (lbl, args) -> 
+    let args_str = match args with
+    | [] -> ""
+    | _ -> " (" ^ String.concat ", " (List.map (pp_value ctx) args) ^ ")"
+    in
+    Printf.sprintf "%s %s%s" (keyword ctx "jmp") (label_color ctx lbl) args_str
   | Switch (v, default, cases) ->
     let case_strs = List.map (fun (const_val, label) ->
       Printf.sprintf "%s: %s" (pp_const_value ctx const_val) (label_color ctx label)

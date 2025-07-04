@@ -17,7 +17,7 @@ let get_predecessors (func: I.func) (block_name: string) : string list =
   let preds = ref [] in
   List.iter (fun (block : I.basic_block) ->
     match block.I.terminator with
-    | I.Jmp target when target = block_name ->
+    | I.Jmp (target, _) when target = block_name ->
       preds := block.I.label :: !preds
     | I.Br (_, true_target, false_target) ->
       if true_target = block_name || false_target = block_name then
@@ -33,7 +33,7 @@ let get_predecessors (func: I.func) (block_name: string) : string list =
 (* Get successors of a block *)
 let get_successors (block: I.basic_block) : string list =
   match block.I.terminator with
-  | I.Jmp target -> [target]
+  | I.Jmp (target, _) -> [target]
   | I.Br (_, true_target, false_target) -> [true_target; false_target]
   | I.Switch (_, default, cases) ->
     default :: List.map snd cases

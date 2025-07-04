@@ -15,7 +15,6 @@ type error =
   | InvalidTerminator of string * string            (* block label, reason *)
   | InvalidInstruction of string * string           (* instruction desc, reason *)
   | BlockParameterMismatch of string * int * int   (* block label, expected, actual *)
-  | InvalidPhi of string * string                   (* phi desc, reason *)
   | DominanceViolation of string * string * string  (* use site, def site, reason *)
   | InvalidOperandType of string * string           (* instruction, reason *)
   | MissingEntryBlock
@@ -55,8 +54,6 @@ let string_of_error = function
   | BlockParameterMismatch (label, expected, actual) -> 
     Printf.sprintf "Block '%s' parameter count mismatch: expected %d, got %d" 
       label expected actual
-  | InvalidPhi (desc, reason) -> 
-    Printf.sprintf "Invalid phi %s: %s" desc reason
   | DominanceViolation (use_site, def_site, reason) -> 
     Printf.sprintf "Dominance violation: %s uses value from %s (%s)" 
       use_site def_site reason
@@ -251,8 +248,11 @@ let verify_terminator func block result =
       else result in
     let result = check_target then_lbl result in
     check_target else_lbl result
-  | Jmp target ->
-    check_target target result
+  | Jmp (target, _args) ->
+    (* Check target exists and validate argument types match block parameters *)
+    let result = check_target target result in
+    (* TODO: Validate args match target block parameters *)
+    result
   | Switch (_v, default, cases) ->
     let result = check_target default result in
     List.fold_left (fun res (_, label) -> check_target label res) result cases
@@ -282,7 +282,7 @@ let verify_cfg func result =
     | Br (_, then_lbl, else_lbl) ->
       add_pred then_lbl;
       add_pred else_lbl
-    | Jmp target -> add_pred target
+    | Jmp (target, _args) -> add_pred target
     | Switch (_, default, cases) ->
       add_pred default;
       List.iter (fun (_, lbl) -> add_pred lbl) cases

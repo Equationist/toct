@@ -1,4 +1,4 @@
-# dune exec ./test_printf_complex.bc
+# dune exec /Users/ummonkarpe/Development/compilerkit/_build/default/examples/c_frontend/ccc.bc -- /Users/ummonkarpe/Development/compilerkit/examples/c_frontend/test_control_flow.c -o test_control_flow_ccc
 # OCAMLPARAM: unset
 # Shared cache: enabled-except-user-rules
 # Shared cache location: /Users/ummonkarpe/.cache/dune/db
@@ -13,5 +13,5 @@
 #  ; build_dir = In_build_dir "default"
 #  ; instrument_with = []
 #  }
-$ /Users/ummonkarpe/.opam/4.14.2/bin/ocamlc.opt -config > /var/folders/7_/zrr90vd15tj2szg8rtjyqtzh0000gn/T/dune_3318a3_output
-$ (cd /Users/ummonkarpe/Development/compilerkit/examples/c_frontend && /Users/ummonkarpe/Development/compilerkit/_build/default/examples/c_frontend/test_printf_complex.bc)
+$ /Users/ummonkarpe/.opam/4.14.2/bin/ocamlc.opt -config > /var/folders/7_/zrr90vd15tj2szg8rtjyqtzh0000gn/T/dune_4140a6_output
+$ (cd /Users/ummonkarpe/Development/compilerkit/examples/c_frontend && /Users/ummonkarpe/Development/compilerkit/_build/default/examples/c_frontend/ccc.bc /Users/ummonkarpe/Development/compilerkit/examples/c_frontend/test_control_flow.c -o test_control_flow_ccc)

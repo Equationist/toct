@@ -64,7 +64,6 @@ let rec build_tree (instr: Instructions.instr) : tree_node =
       (match call_op with
        | Instructions.Call (fn_ptr, args) -> value_to_tree fn_ptr :: List.map value_to_tree args
        | Instructions.TailCall (fn_ptr, args) -> value_to_tree fn_ptr :: List.map value_to_tree args)
-    | Instructions.Phi _ -> []   (* Handle in SSA destruction *)
     | Instructions.Const _ -> []
     | Instructions.Freeze v -> [value_to_tree v]
     | Instructions.ExtractValue (v, _) -> [value_to_tree v]
@@ -177,7 +176,6 @@ module InstructionSelector (M: MACHINE) = struct
       (match call_op with
        | Instructions.Call (fn_ptr, args) -> fn_ptr :: args
        | Instructions.TailCall (fn_ptr, args) -> fn_ptr :: args)
-    | Instructions.Phi _ -> []   (* Handle in SSA destruction *)
     | Instructions.Const _ -> []
     | Instructions.Freeze v -> [v]
     | Instructions.ExtractValue (v, _) -> [v]
@@ -316,7 +314,8 @@ module InstructionSelector (M: MACHINE) = struct
         [{ label = None; op = TEST (r, r); comment = Some "test condition" };
          { label = None; op = JCC (NE, then_lbl); comment = Some "branch if true" };
          { label = None; op = JMP else_lbl; comment = Some "branch if false" }]
-      | Instructions.Jmp lbl ->
+      | Instructions.Jmp (lbl, args) ->
+        (* TODO: Handle block arguments - for now just jump *)
         [{ label = None; op = JMP lbl; comment = Some "unconditional jump" }]
       | Instructions.Switch _ -> failwith "Switch not implemented yet"
       | Instructions.Unreachable -> []

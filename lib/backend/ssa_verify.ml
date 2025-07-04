@@ -150,8 +150,6 @@ let collect_uses (func: I.func) : (int * string) list =
          | I.TailCall (callee, args) ->
            add_use block.I.label callee;
            List.iter (add_use block.I.label) args)
-      | I.Phi operands ->
-        List.iter (fun (value, _) -> add_use block.I.label value) operands
       | I.Const const_val ->
         add_const_uses block.I.label const_val
       | I.Freeze v ->

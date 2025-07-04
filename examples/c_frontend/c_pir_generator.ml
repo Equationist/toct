@@ -57,6 +57,16 @@ let start_block ctx label =
   let new_block = create_block label [] [] Unreachable in
   ctx.current_block <- Some new_block
 
+let start_block_with_params ctx label params =
+  (* Finish current block if exists *)
+  (match ctx.current_block with
+   | Some block -> ctx.blocks <- block :: ctx.blocks
+   | None -> ());
+  
+  (* Create new block with parameters *)
+  let new_block = create_block label params [] Unreachable in
+  ctx.current_block <- Some new_block
+
 (** Finish current block with terminator *)
 let finish_block ctx terminator =
   match ctx.current_block with
@@ -200,18 +210,17 @@ let rec gen_expr ctx expr expected_type =
        (* True branch: evaluate right operand *)
        start_block ctx true_label;
        let right_val = gen_expr ctx right expected_type in
-       finish_block ctx (Jmp end_label);
+       finish_block ctx (Jmp (end_label, [right_val]));
        
        (* False branch: result is false *)
        start_block ctx false_label;
        let false_val = create_simple_value (Scalar I1) in
        emit_instr ctx ~result:false_val (Const (ConstBool false));
-       finish_block ctx (Jmp end_label);
+       finish_block ctx (Jmp (end_label, [false_val]));
        
-       (* End: phi node to select result *)
-       start_block ctx end_label;
+       (* End: block parameter receives result *)
+       start_block_with_params ctx end_label [("result", Scalar I1)];
        let result_value = create_simple_value (Scalar I1) in
-       emit_instr ctx ~result:result_value (Phi [(right_val, true_label); (false_val, false_label)]);
        result_value
      
      | LogOr ->
@@ -225,15 +234,14 @@ let rec gen_expr ctx expr expected_type =
        start_block ctx true_label;
        let true_val = create_simple_value (Scalar I1) in
        emit_instr ctx ~result:true_val (Const (ConstBool true));
-       finish_block ctx (Jmp end_label);
+       finish_block ctx (Jmp (end_label, [true_val]));
        
        start_block ctx false_label;
        let right_val = gen_expr ctx right expected_type in
-       finish_block ctx (Jmp end_label);
+       finish_block ctx (Jmp (end_label, [right_val]));
        
-       start_block ctx end_label;
+       start_block_with_params ctx end_label [("result", Scalar I1)];
        let result_value = create_simple_value (Scalar I1) in
-       emit_instr ctx ~result:result_value (Phi [(true_val, true_label); (right_val, false_label)]);
        result_value
      
      (* Assignment operators *)
@@ -302,15 +310,15 @@ let rec gen_expr ctx expr expected_type =
     
     start_block ctx true_label;
     let true_val = gen_expr ctx true_expr expected_type in
-    finish_block ctx (Jmp end_label);
+    let val_type = get_type true_val in
+    finish_block ctx (Jmp (end_label, [true_val]));
     
     start_block ctx false_label;
     let false_val = gen_expr ctx false_expr expected_type in
-    finish_block ctx (Jmp end_label);
+    finish_block ctx (Jmp (end_label, [false_val]));
     
-    start_block ctx end_label;
-    let result_value = create_simple_value (get_type true_val) in
-    emit_instr ctx ~result:result_value (Phi [(true_val, true_label); (false_val, false_label)]);
+    start_block_with_params ctx end_label [("result", val_type)];
+    let result_value = create_simple_value val_type in
     result_value
   
   | FuncCall (func_expr, arg_exprs) ->
@@ -345,13 +353,13 @@ let rec gen_stmt ctx = function
     
     start_block ctx then_label;
     gen_stmt ctx then_stmt;
-    finish_block ctx (Jmp end_label);
+    finish_block ctx (Jmp (end_label, []));
     
     start_block ctx else_label;
     (match else_stmt with
      | Some stmt -> gen_stmt ctx stmt
      | None -> ());
-    finish_block ctx (Jmp end_label);
+    finish_block ctx (Jmp (end_label, []));
     
     start_block ctx end_label
   
@@ -364,7 +372,7 @@ let rec gen_stmt ctx = function
     ctx.break_targets <- end_label :: ctx.break_targets;
     ctx.continue_targets <- cond_label :: ctx.continue_targets;
     
-    finish_block ctx (Jmp cond_label);
+    finish_block ctx (Jmp (cond_label, []));
     
     start_block ctx cond_label;
     let cond_val = gen_expr ctx cond Bool in
@@ -372,7 +380,7 @@ let rec gen_stmt ctx = function
     
     start_block ctx body_label;
     gen_stmt ctx body;
-    finish_block ctx (Jmp cond_label);
+    finish_block ctx (Jmp (cond_label, []));
     
     start_block ctx end_label;
     
@@ -395,7 +403,7 @@ let rec gen_stmt ctx = function
      | Some expr -> let _ = gen_expr ctx expr Void in ()
      | None -> ());
     
-    finish_block ctx (Jmp cond_label);
+    finish_block ctx (Jmp (cond_label, []));
     
     (* Condition check *)
     start_block ctx cond_label;
@@ -404,19 +412,19 @@ let rec gen_stmt ctx = function
        let cond_val = gen_expr ctx expr Bool in
        finish_block ctx (Br (cond_val, body_label, end_label))
      | None ->
-       finish_block ctx (Jmp body_label));
+       finish_block ctx (Jmp (body_label, [])));
     
     (* Body *)
     start_block ctx body_label;
     gen_stmt ctx body;
-    finish_block ctx (Jmp update_label);
+    finish_block ctx (Jmp (update_label, []));
     
     (* Update *)
     start_block ctx update_label;
     (match update with
      | Some expr -> let _ = gen_expr ctx expr Void in ()
      | None -> ());
-    finish_block ctx (Jmp cond_label);
+    finish_block ctx (Jmp (cond_label, []));
     
     start_block ctx end_label;
     
@@ -426,12 +434,12 @@ let rec gen_stmt ctx = function
   
   | BreakStmt ->
     (match ctx.break_targets with
-     | target :: _ -> finish_block ctx (Jmp target); start_block ctx (fresh_label ctx)
+     | target :: _ -> finish_block ctx (Jmp (target, [])); start_block ctx (fresh_label ctx)
      | [] -> failwith "Break outside loop")
   
   | ContinueStmt ->
     (match ctx.continue_targets with
-     | target :: _ -> finish_block ctx (Jmp target); start_block ctx (fresh_label ctx)
+     | target :: _ -> finish_block ctx (Jmp (target, [])); start_block ctx (fresh_label ctx)
      | [] -> failwith "Continue outside loop")
   
   | ReturnStmt expr_opt ->
