@@ -41,6 +41,12 @@ let compile_file input_file output_file =
       | Error msg -> failwith ("PIR generation failed: " ^ msg)
     in
     
+    (* Debug: Print PIR *)
+    List.iter (fun func ->
+      let func_str = Pretty_printer.function_to_string func in
+      Printf.eprintf "PIR:\n%s\n" func_str
+    ) pir_functions;
+    
     (* Create PIR module *)
     let module_items = List.map (fun f -> Module_ir.FuncDecl f) pir_functions in
     let pir_module = Module_ir.create_module module_items (Attributes.empty ()) in

@@ -110,28 +110,7 @@ let rec compute_costs (patterns: pattern list) (node: tree_node) : unit =
   (* First compute costs for children *)
   List.iter (compute_costs patterns) node.children;
   
-  (* Debug: print what we're trying to match *)
-  (match node.instr with
-  | Instructions.Binop (op, _, v1, v2) ->
-    Printf.eprintf "DEBUG: Trying to match Binop %s with types %s, %s\n"
-      (match op with 
-       | Instructions.Add -> "Add" 
-       | Instructions.Sub -> "Sub"
-       | Instructions.Mul -> "Mul"
-       | _ -> "Other")
-      (Types.string_of_ty v1.Values.ty)
-      (Types.string_of_ty v2.Values.ty)
-  | Instructions.Const c ->
-    Printf.eprintf "DEBUG: Trying to match Const: %s\n"
-      (match c with
-       | Values.ConstInt (v, ty) -> Printf.sprintf "ConstInt(%Ld, %s)" v (Types.string_of_scalar ty)
-       | Values.ConstFloat (v, ty) -> Printf.sprintf "ConstFloat(%f, %s)" v (Types.string_of_scalar ty)
-       | Values.ConstZero ty -> Printf.sprintf "ConstZero(%s)" (Types.string_of_ty ty)
-       | _ -> "Other const")
-  | _ -> ());
-  
   (* Try each pattern *)
-  Printf.eprintf "DEBUG: Number of patterns to try: %d\n" (List.length patterns);
   let matched_count = ref 0 in
   List.iter (fun pattern ->
     if match_pattern pattern node then begin
@@ -143,10 +122,7 @@ let rec compute_costs (patterns: pattern list) (node: tree_node) : unit =
         node.selected_pattern <- Some pattern
       end
     end
-  ) patterns;
-  
-  if !matched_count = 0 then
-    Printf.eprintf "DEBUG: No patterns matched!\n"
+  ) patterns
 
 (* Main instruction selection *)
 module InstructionSelector (M: MACHINE) = struct
@@ -213,6 +189,14 @@ module InstructionSelector (M: MACHINE) = struct
           | _ -> 
             (* Fallback if no result value - shouldn't happen for constants *)
             failwith "Constant instruction without result value")
+        | Instructions.Const c ->
+          (* Debug other const types *)
+          Printf.eprintf "DEBUG emit_code: Const type not handled: %s\n"
+            (match c with
+             | Values.ConstZero _ -> "ConstZero"
+             | Values.ConstNull -> "ConstNull"
+             | _ -> "Other");
+          []
         | _ ->
           (* Extract result value and operand values *)
           let result_val = match instr_context with
@@ -253,12 +237,6 @@ module InstructionSelector (M: MACHINE) = struct
     let code = ref [] in
     
     List.iter (fun (instr: Instructions.instruction) ->
-      (* Debug: print instruction *)
-      Printf.eprintf "DEBUG: Processing instruction with result %s\n"
-        (match instr.result with
-         | Some v -> Printf.sprintf "v%d" v.Values.id
-         | None -> "none");
-      
       (* Build tree *)
       let tree = build_tree instr.instr in
       (* Also store the instruction context in the tree *)
