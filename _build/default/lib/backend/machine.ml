@@ -42,6 +42,7 @@ type machine_op =
   | LOAD of reg * addr_mode * int        (* load dst, [addr], size *)
   | STORE of reg * addr_mode * int       (* store src, [addr], size *)
   | LEA of reg * addr_mode               (* load effective address *)
+  | ADR of reg * string                  (* ARM64: Load address of label *)
   
   (* Arithmetic *)
   | ADD of reg * reg * reg               (* dst = src1 + src2 *)
@@ -214,4 +215,9 @@ module type MACHINE = sig
   val emit_epilogue : frame_info -> machine_instr list
   val emit_call : string -> reg list -> reg option -> machine_instr list
   val materialize_constant : int64 -> Compilerkit_pir.Types.ty -> reg -> machine_instr list
+  
+  (* String literal tracking *)
+  val string_literal_table : (string * string) list ref
+  val string_literal_counter : int ref
+  val register_string_literal : string -> string
 end

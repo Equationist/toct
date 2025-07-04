@@ -325,7 +325,7 @@ module InstructionSelector (M: MACHINE) = struct
     !code @ term_code
   
   (* Select instructions for a function *)
-  let select_function (func: Instructions.func) : machine_instr list =
+  let select_function ~register_string_literal (func: Instructions.func) : machine_instr list =
     (* For simple functions, use minimal frame *)
     (* TODO: Proper frame size calculation based on actual locals and spills *)
     let is_simple_function = 

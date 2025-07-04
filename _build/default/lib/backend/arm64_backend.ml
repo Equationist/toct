@@ -364,23 +364,46 @@ let arm64_br_pattern =
     hints = [];
   }
 
+(* Global string literal tracker - should be passed from codegen *)
+let string_literal_table = ref []
+let string_literal_counter = ref 0
+
+let register_string_literal str =
+  try
+    List.find (fun (_, s) -> s = str) !string_literal_table |> fst
+  with Not_found ->
+    let label = Printf.sprintf "L_.str.%d" !string_literal_counter in
+    incr string_literal_counter;
+    string_literal_table := (label, str) :: !string_literal_table;
+    label
+
 (* Emit function call *)
-let emit_arm64_call name arg_regs result_reg =
+let emit_arm64_call name arg_vals arg_regs result_reg =
   (* Move arguments to calling convention registers *)
-  let arg_moves = List.mapi (fun i arg_reg ->
+  let arg_moves = List.mapi (fun i (arg_val, arg_reg) ->
     if i < 8 then
       (* Use correct size calling convention register to match argument size *)
       let conv_reg = 
         let base_reg = List.nth arm64_calling_conv.int_arg_regs i in
         make_gpr base_reg.reg_index arg_reg.reg_size
       in
-      { label = None; op = MOV (conv_reg, arg_reg); 
-        comment = Some (Printf.sprintf "arg %d" i) }
+      (* Check if this argument is a string literal *)
+      match Attributes.get_opt "string_literal" (Values.get_attrs arg_val) with
+      | Some (Attributes.String str) ->
+        (* This is a string literal - need to load its address *)
+        let label = register_string_literal str in
+        { label = None; 
+          op = ADR (conv_reg, label);
+          comment = Some (Printf.sprintf "arg %d: string literal \"%s\"" i (String.escaped str)) }
+      | _ ->
+        (* Regular argument *)
+        { label = None; op = MOV (conv_reg, arg_reg); 
+          comment = Some (Printf.sprintf "arg %d" i) }
     else
       (* Push pairs of registers for better alignment *)
       { label = None; op = STORE (arg_reg, PreIndex (sp, Int64.neg 8L), 8); 
         comment = Some (Printf.sprintf "arg %d on stack" i) }
-  ) arg_regs in
+  ) (List.combine arg_vals arg_regs) in
   
   (* Call instruction - BL in ARM64 *)
   let call_instr = { label = None; op = CALL (None, Some name); comment = Some "branch with link" } in
@@ -431,7 +454,7 @@ let arm64_call_pattern has_result =
           | Some v -> Some (reg_alloc v)
           | None -> None
         in
-        emit_arm64_call func_name arg_regs result_reg
+        emit_arm64_call func_name args arg_regs result_reg
       | _ -> failwith "Call expects at least a function pointer"
     );
     constraints = RegClass GPR :: (if has_result then [RegClass GPR] else []);
@@ -956,6 +979,14 @@ module ARM64Backend : MACHINE = struct
   let patterns = arm64_patterns
   let emit_prologue = emit_arm64_prologue
   let emit_epilogue = emit_arm64_epilogue  
-  let emit_call = emit_arm64_call
+  let emit_call name arg_regs result_reg = 
+    (* Create dummy values for compatibility - in real use these would come from instruction selection *)
+    let arg_vals = List.map (fun _ -> Values.create_simple_value Types.Ptr) arg_regs in
+    emit_arm64_call name arg_vals arg_regs result_reg
   let materialize_constant = materialize_arm64_constant
+  
+  (* String literal tracking *)
+  let string_literal_table = string_literal_table
+  let string_literal_counter = string_literal_counter
+  let register_string_literal = register_string_literal
 end

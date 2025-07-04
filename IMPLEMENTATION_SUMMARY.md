@@ -63,12 +63,16 @@ This is a modular compiler toolkit written in OCaml that compiles C89/90 code to
 2. **Function Parameters**: Not properly connected to calling convention registers
 3. **Array Sizes**: Array size information lost during type processing
 
+#### Backend Features
+1. **String Literals**: ✅ Global constants emitted in __TEXT,__cstring section
+2. **External Functions**: ✅ Calls to external functions work (e.g., printf)
+3. **String Arguments**: ✅ ADR instruction loads string addresses for function calls
+
 #### Backend Limitations
-1. **String Literals**: Need global constant emission in data section
-2. **External Functions**: No proper declaration/linking for printf etc.
-3. **Varargs**: No calling convention support for variadic functions
-4. **ConstZero**: Not handled in many backend patterns
-5. **Floating Point**: No FP register support or operations
+1. **Varargs**: Basic support - full calling convention not implemented
+2. **ConstZero**: Not handled in many backend patterns  
+3. **Floating Point**: No FP register support or operations
+4. **Function Parameters**: Not properly connected to calling convention registers
 
 #### Missing C Features
 1. **Operators**: ++, --, ?: (ternary), sizeof, cast expressions

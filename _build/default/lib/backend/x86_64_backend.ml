@@ -220,6 +220,12 @@ let materialize_x64_constant value ty dst =
       [{ label = None; op = MOV_IMM (dst, value); comment = Some (Printf.sprintf "load constant %Ld" value) }]
   | _ -> failwith "Can only materialize scalar constants"
 
+(* Dummy string literal tracking for x86_64 - not fully implemented *)
+let string_literal_table = ref []
+let string_literal_counter = ref 0
+let register_string_literal str = 
+  Printf.sprintf ".LC%d" !string_literal_counter
+
 (* x86_64 backend module *)
 module X64Backend : MACHINE = struct
   let config = x64_config
@@ -228,4 +234,9 @@ module X64Backend : MACHINE = struct
   let emit_epilogue = emit_x64_epilogue
   let emit_call = emit_x64_call
   let materialize_constant = materialize_x64_constant
+  
+  (* String literal tracking *)
+  let string_literal_table = string_literal_table
+  let string_literal_counter = string_literal_counter
+  let register_string_literal = register_string_literal
 end
