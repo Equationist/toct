@@ -1,9 +1,7 @@
 (** CCC - CompilerKit C Compiler 
     End-to-end C compiler using the annotated AST pipeline *)
 
-open C_frontend
 open Compilerkit_pir
-open Compilerkit_backend
 
 let compile_file input_file output_file =
   try
@@ -17,35 +15,35 @@ let compile_file input_file output_file =
     
     (* Frontend: C -> PIR *)
     Printf.eprintf "Preprocessing %s...\n" input_file;
-    let preprocessed = Preprocessor.preprocess_string ~filename:input_file source in
+    let preprocessed = C_frontend.Preprocessor.preprocess_string ~filename:input_file source in
     
     Printf.eprintf "Lexing...\n";
-    let tokens = Lexer.lex_string input_file preprocessed in
+    let tokens = C_frontend.Lexer.lex_string input_file preprocessed in
     
     Printf.eprintf "Parsing...\n";
-    let ast = Parser.parse tokens in
+    let ast = C_frontend.Parser.parse tokens in
     
     Printf.eprintf "Type checking...\n";
-    let symbol_table = match C_type_checker.type_check ast with
+    let symbol_table = match C_frontend.C_type_checker.type_check ast with
       | Ok st -> st
       | Error msg -> failwith ("Type checking failed: " ^ msg)
     in
     
     Printf.eprintf "Annotating AST...\n";
-    let annotated_ast, _ = match C_ast_annotator.annotate_translation_unit ast with
+    let annotated_ast, _ = match C_frontend.C_ast_annotator.annotate_translation_unit ast with
       | Ok (ast, st) -> ast, st
       | Error msg -> failwith ("AST annotation failed: " ^ msg)
     in
     
     Printf.eprintf "Generating PIR...\n";
-    let pir_functions = match C_annotated_pir_generator.generate_pir_from_annotated annotated_ast symbol_table with
+    let pir_functions = match C_frontend.C_annotated_pir_generator.generate_pir_from_annotated annotated_ast symbol_table with
       | Ok funcs -> funcs
       | Error msg -> failwith ("PIR generation failed: " ^ msg)
     in
     
     (* Create PIR module *)
-    let pir_module = Module_ir.create_module input_file in
-    List.iter (Module_ir.add_function pir_module) pir_functions;
+    let module_items = List.map (fun f -> Module_ir.FuncDecl f) pir_functions in
+    let pir_module = Module_ir.create_module module_items (Attributes.empty ()) in
     
     (* Backend: PIR -> Assembly *)
     Printf.eprintf "Generating assembly...\n";
@@ -59,7 +57,7 @@ let compile_file input_file output_file =
     
     (* Assemble and link *)
     Printf.eprintf "Assembling and linking...\n";
-    let cmd = Printf.sprintf "as -o %s.o %s && ld -o %s %s.o -lSystem -syslibroot `xcrun -sdk macosx --show-sdk-path` -arch arm64" 
+    let cmd = Printf.sprintf "as -arch arm64 -o %s.o %s && ld -o %s %s.o -lSystem -syslibroot `xcrun -sdk macosx --show-sdk-path` -arch arm64" 
       output_file asm_file output_file output_file in
     let exit_code = Sys.command cmd in
     

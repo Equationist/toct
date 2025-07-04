@@ -81,6 +81,9 @@ let match_pattern (pattern: pattern) (node: tree_node) : bool =
   | Instructions.Binop (op1, _, _, _), Instructions.Binop (op2, _, _, _) -> op1 = op2
   | Instructions.Memory (Instructions.Load ty1), Instructions.Memory (Instructions.Load ty2) -> ty1 = ty2
   | Instructions.Memory (Instructions.Store _), Instructions.Memory (Instructions.Store _) -> true
+  | Instructions.Const (Values.ConstInt (_, ty1)), Instructions.Const (Values.ConstInt (_, ty2)) -> ty1 = ty2
+  | Instructions.Const (Values.ConstFloat (_, ty1)), Instructions.Const (Values.ConstFloat (_, ty2)) -> ty1 = ty2
+  | Instructions.Const Values.ConstNull, Instructions.Const Values.ConstNull -> true
   | _ -> false
 
 (* BURS algorithm - compute minimum cost cover *)
@@ -99,19 +102,32 @@ let rec compute_costs (patterns: pattern list) (node: tree_node) : unit =
       end
   ) patterns
 
-(* Code emission *)
-let rec emit_code (node: tree_node) (reg_alloc: Values.value -> reg) : machine_instr list =
-  match node.selected_pattern with
-  | None -> failwith "No pattern selected for instruction"
-  | Some pattern ->
-    (* First emit code for children *)
-    let child_code = List.concat (List.map (fun child -> emit_code child reg_alloc) node.children) in
-    (* Then emit code for this node *)
-    let node_code = pattern.emit reg_alloc in
-    child_code @ node_code
-
 (* Main instruction selection *)
 module InstructionSelector (M: MACHINE) = struct
+  
+  (* Code emission with access to machine module and instruction context *)
+  let rec emit_code_with_machine (node: tree_node) (reg_alloc: Values.value -> reg) (instr_context: Instructions.instruction option) : machine_instr list =
+    match node.selected_pattern with
+    | None -> failwith "No pattern selected for instruction"
+    | Some pattern ->
+      (* First emit code for children *)
+      let child_code = List.concat (List.map (fun child -> emit_code_with_machine child reg_alloc None) node.children) in
+      (* Then emit code for this node *)
+      (* Special handling for constants using materialize_constant *)
+      let node_code = match node.instr with
+        | Instructions.Const (Values.ConstInt (value, ty)) ->
+          (* For constants, use the machine's materialize_constant function *)
+          (* Get the destination register from the instruction's result value *)
+          (match instr_context with
+          | Some { result = Some result_val; _ } ->
+            let dst_reg = reg_alloc result_val in
+            M.materialize_constant value (Types.Scalar ty) dst_reg
+          | _ -> 
+            (* Fallback if no result value - shouldn't happen for constants *)
+            failwith "Constant instruction without result value")
+        | _ -> pattern.emit reg_alloc
+      in
+      child_code @ node_code
   
   (* Select instructions for a basic block *)
   let select_block (block: Instructions.basic_block) : machine_instr list =
@@ -140,7 +156,7 @@ module InstructionSelector (M: MACHINE) = struct
       compute_costs M.patterns tree;
       
       (* Emit code *)
-      let instr_code = emit_code tree get_reg in
+      let instr_code = emit_code_with_machine tree get_reg (Some instr) in
       code := !code @ instr_code
     ) block.instructions;
     

@@ -56,7 +56,6 @@ module CodeGenerator (M: MACHINE) = struct
     | ADD (_, src1, _) when src1 = reg -> true (* add ..., sp, ... *)
     | SUB (_, src1, _) when src1 = reg -> true (* sub ..., sp, ... *)
     | _ -> false
-  in
   
   let format_reg ?(is_addr_mode=false) ?(in_op=None) (r: reg) : string =
     match M.config.word_size, r.reg_class with
@@ -90,6 +89,7 @@ module CodeGenerator (M: MACHINE) = struct
     let fmt_reg r = format_reg ~in_op:(Some op) r in
     match op with
     | MOV (dst, src) -> Printf.sprintf "mov %s, %s" (fmt_reg dst) (fmt_reg src)
+    | MOV_IMM (dst, imm) -> Printf.sprintf "mov %s, #%Ld" (fmt_reg dst) imm
     | LOAD (dst, addr, size) -> 
       let suffix = match size with 1 -> "b" | 2 -> "h" | 4 -> "w" | _ -> "" in
       Printf.sprintf "ldr%s %s, %s" suffix (fmt_reg dst) (format_addr_mode addr)

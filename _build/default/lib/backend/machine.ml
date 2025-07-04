@@ -38,6 +38,7 @@ type cond =
 type machine_op = 
   (* Data movement *)
   | MOV of reg * reg                     (* mov dst, src *)
+  | MOV_IMM of reg * int64               (* mov dst, #imm *)
   | LOAD of reg * addr_mode * int        (* load dst, [addr], size *)
   | STORE of reg * addr_mode * int       (* store src, [addr], size *)
   | LEA of reg * addr_mode               (* load effective address *)

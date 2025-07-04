@@ -1,7 +1,6 @@
-(** Simple test of backend code generation *)
+(** Test program to dump PIR for debugging *)
 
 open Compilerkit_pir
-open Compilerkit_backend
 
 let test_simple_function () =
   let source = {|
@@ -10,7 +9,7 @@ int main() {
 }
 |} in
 
-  Printf.printf "=== Testing Simple Backend Code Generation ===\n\n";
+  Printf.printf "=== Testing Simple PIR Generation ===\n\n";
   Printf.printf "Source code:\n%s\n" source;
   
   try
@@ -34,25 +33,13 @@ int main() {
       | Error msg -> failwith ("PIR generation failed: " ^ msg)
     in
     
-    (* Create PIR module *)
-    let module_items = List.map (fun f -> Module_ir.FuncDecl f) pir_functions in
-    let pir_module = Module_ir.create_module module_items (Attributes.empty ()) in
+    Printf.printf "\nGenerated %d PIR functions\n" (List.length pir_functions);
     
-    Printf.printf "\nPIR generated successfully!\n";
-    
-    (* Print the PIR first *)
+    (* Print PIR using pretty printer *)
     List.iter (fun func ->
       let func_str = Pretty_printer.function_to_string func in
-      Printf.printf "\nPIR:\n%s\n" func_str
-    ) pir_functions;
-    
-    (* Try backend - catch any errors *)
-    (try
-      let asm_code = Codegen.generate_for_target Codegen.ARM64 pir_module in
-      Printf.printf "\nGenerated assembly:\n%s\n" asm_code
-    with e ->
-      Printf.printf "\nBackend error: %s\n" (Printexc.to_string e);
-      Printf.printf "Stack trace:\n%s\n" (Printexc.get_backtrace ()))
+      Printf.printf "\n%s\n" func_str
+    ) pir_functions
     
   with e ->
     Printf.printf "Error: %s\n" (Printexc.to_string e)

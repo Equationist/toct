@@ -603,8 +603,18 @@ let arm64_const_pattern scalar_ty =
     pir_pattern = Instructions.Const (Values.ConstInt (0L, scalar_ty));  (* Dummy constant *)
     cost = 1;  (* Will be refined by materialize_constant *)
     emit = (fun reg_alloc ->
-      (* This will be handled by materialize_constant *)
-      []
+      (* Extract the actual constant value from the instruction *)
+      let extract_const_value instr =
+        match instr with
+        | Instructions.Const (Values.ConstInt (value, _)) -> value
+        | _ -> failwith "Expected constant instruction"
+      in
+      (* Get the destination register *)
+      let dst = make_gpr 0 (Types.size_of_scalar scalar_ty) in
+      (* Call materialize_constant with the actual value *)
+      (* Note: We need access to the actual instruction to get the real constant value
+         This is a limitation of the current pattern matching approach *)
+      []  (* TODO: Need to pass actual constant value through pattern matching *)
     );
     constraints = [RegClass GPR];
     hints = [];
@@ -769,60 +779,8 @@ let materialize_arm64_constant value ty dst =
       (* Use zero register *)
       [{ label = None; op = MOV (dst, xzr); comment = Some "load zero" }]
     else
-      (* ARM64 constant loading strategy:
-         - For 16-bit values: single MOVZ
-         - For 32-bit values: MOVZ + optional MOVK
-         - For 64-bit values: MOVZ + up to 3 MOVK instructions *)
-      let instrs = ref [] in
-      let add_instr op comment = instrs := !instrs @ [{ label = None; op; comment = Some comment }] in
-      
-      (* Extract 16-bit chunks from the value *)
-      let chunk0 = Int64.logand value 0xFFFFL in
-      let chunk1 = Int64.logand (Int64.shift_right_logical value 16) 0xFFFFL in
-      let chunk2 = Int64.logand (Int64.shift_right_logical value 32) 0xFFFFL in
-      let chunk3 = Int64.logand (Int64.shift_right_logical value 48) 0xFFFFL in
-      
-      (* Determine if we can use MOVN (bitwise NOT) for better encoding *)
-      let use_movn = 
-        let inverted = Int64.lognot value in
-        let inv_chunks = [
-          Int64.logand inverted 0xFFFFL;
-          Int64.logand (Int64.shift_right_logical inverted 16) 0xFFFFL;
-          Int64.logand (Int64.shift_right_logical inverted 32) 0xFFFFL;
-          Int64.logand (Int64.shift_right_logical inverted 48) 0xFFFFL;
-        ] in
-        (* Count non-zero chunks in original vs inverted *)
-        let count_nonzero chunks = List.fold_left (fun acc c -> if c = 0L then acc else acc + 1) 0 chunks in
-        count_nonzero inv_chunks < count_nonzero [chunk0; chunk1; chunk2; chunk3]
-      in
-      
-      if use_movn then begin
-        (* Use MOVN for efficiency *)
-        let inv = Int64.lognot value in
-        add_instr (MOV (dst, dst)) (Printf.sprintf "movn 0x%Lx (NOT of 0x%Lx)" (Int64.logand inv 0xFFFFL) value)
-      end else begin
-        (* Standard MOVZ/MOVK sequence *)
-        (* Find first non-zero chunk for MOVZ *)
-        if chunk0 <> 0L then
-          add_instr (MOV (dst, dst)) (Printf.sprintf "movz 0x%Lx" chunk0)
-        else if chunk1 <> 0L then
-          add_instr (MOV (dst, dst)) (Printf.sprintf "movz 0x%Lx, lsl 16" chunk1)
-        else if chunk2 <> 0L then
-          add_instr (MOV (dst, dst)) (Printf.sprintf "movz 0x%Lx, lsl 32" chunk2)
-        else
-          add_instr (MOV (dst, dst)) (Printf.sprintf "movz 0x%Lx, lsl 48" chunk3);
-        
-        (* Add MOVK for remaining non-zero chunks *)
-        if chunk0 <> 0L && (chunk1 <> 0L || chunk2 <> 0L || chunk3 <> 0L) then
-          (); (* chunk0 already loaded with MOVZ *)
-        if chunk1 <> 0L && (chunk0 <> 0L || chunk2 <> 0L || chunk3 <> 0L) then
-          add_instr (MOV (dst, dst)) (Printf.sprintf "movk 0x%Lx, lsl 16" chunk1);
-        if chunk2 <> 0L && (chunk0 <> 0L || chunk1 <> 0L || chunk3 <> 0L) then
-          add_instr (MOV (dst, dst)) (Printf.sprintf "movk 0x%Lx, lsl 32" chunk2);
-        if chunk3 <> 0L && (chunk0 <> 0L || chunk1 <> 0L || chunk2 <> 0L) then
-          add_instr (MOV (dst, dst)) (Printf.sprintf "movk 0x%Lx, lsl 48" chunk3)
-      end;
-      !instrs
+      (* For simple cases, just use MOV_IMM which will be expanded during assembly *)
+      [{ label = None; op = MOV_IMM (dst, value); comment = Some (Printf.sprintf "load constant %Ld" value) }]
   | _ -> failwith "Can only materialize scalar constants"
 
 (* ARM64 backend module *)

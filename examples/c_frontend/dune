@@ -137,6 +137,24 @@
  (modules test_simple_backend)
  (modes byte))
 
+(executable
+ (name test_dump_pir)
+ (libraries c_frontend compilerkit.pir)
+ (modules test_dump_pir)
+ (modes byte))
+
+(executable
+ (name test_debug_backend)
+ (libraries c_frontend compilerkit.pir compilerkit.backend)
+ (modules test_debug_backend)
+ (modes byte))
+
+(executable
+ (name test_end_to_end_debug)
+ (libraries c_frontend compilerkit.pir compilerkit.backend)
+ (modules test_end_to_end_debug)
+ (modes byte))
+
 (rule
  (alias runtest)
  (action (run ./test_preprocessor.exe)))

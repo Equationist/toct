@@ -45,49 +45,71 @@ module CodeGenerator (M: MACHINE) = struct
     (allocated_instrs, frame)
   
   (* Assembly output formatting *)
-  let format_reg (r: reg) : string =
+  (* Helper to determine if reg 31 should be sp or xzr in ARM64 *)
+  let is_sp_context reg op =
+    M.config.word_size = W64 && reg.reg_class = GPR && reg.reg_index = 31 &&
+    match op with
+    | MOV (dst, src) when dst = reg -> true  (* mov sp, ... *)
+    | MOV (dst, src) when src = reg -> true  (* mov ..., sp *)
+    | ADD (dst, _, _) when dst = reg -> true (* add sp, ... *)
+    | SUB (dst, _, _) when dst = reg -> true (* sub sp, ... *)
+    | ADD (_, src1, _) when src1 = reg -> true (* add ..., sp, ... *)
+    | SUB (_, src1, _) when src1 = reg -> true (* sub ..., sp, ... *)
+    | _ -> false
+  
+  let format_reg ?(is_addr_mode=false) ?(in_op=None) (r: reg) : string =
     match M.config.word_size, r.reg_class with
-    | W64, GPR -> Printf.sprintf "x%d" r.reg_index
+    | W64, GPR -> 
+      (* On ARM64, register 31 is SP in addressing modes or specific contexts, XZR elsewhere *)
+      if r.reg_index = 31 then
+        if is_addr_mode then "sp"
+        else match in_op with
+        | Some op when is_sp_context r op -> "sp"
+        | _ -> "xzr"
+      else Printf.sprintf "x%d" r.reg_index
     | W32, GPR -> Printf.sprintf "r%d" r.reg_index
     | _, FPR -> Printf.sprintf "d%d" r.reg_index
     | _, VEC -> Printf.sprintf "v%d" r.reg_index
     | _, FLAGS -> "flags"
   
   let format_addr_mode = function
-    | Direct r -> Printf.sprintf "[%s]" (format_reg r)
-    | Offset (r, off) -> Printf.sprintf "[%s, #%Ld]" (format_reg r) off
+    | Direct r -> Printf.sprintf "[%s]" (format_reg ~is_addr_mode:true r)
+    | Offset (r, off) -> Printf.sprintf "[%s, #%Ld]" (format_reg ~is_addr_mode:true r) off
     | Indexed (base, idx, scale) -> 
-      Printf.sprintf "[%s, %s, LSL #%d]" (format_reg base) (format_reg idx) scale
-    | PreIndex (r, off) -> Printf.sprintf "[%s, #%Ld]!" (format_reg r) off
-    | PostIndex (r, off) -> Printf.sprintf "[%s], #%Ld" (format_reg r) off
+      Printf.sprintf "[%s, %s, LSL #%d]" (format_reg ~is_addr_mode:true base) (format_reg ~is_addr_mode:true idx) scale
+    | PreIndex (r, off) -> Printf.sprintf "[%s, #%Ld]!" (format_reg ~is_addr_mode:true r) off
+    | PostIndex (r, off) -> Printf.sprintf "[%s], #%Ld" (format_reg ~is_addr_mode:true r) off
   
   let format_cond = function
     | EQ -> "eq" | NE -> "ne" | LT -> "lt" | LE -> "le"
     | GT -> "gt" | GE -> "ge" | ULT -> "lo" | ULE -> "ls"
     | UGT -> "hi" | UGE -> "hs" | O -> "vs" | NO -> "vc"
   
-  let format_machine_op = function
-    | MOV (dst, src) -> Printf.sprintf "mov %s, %s" (format_reg dst) (format_reg src)
+  let format_machine_op op =
+    let fmt_reg r = format_reg ~in_op:(Some op) r in
+    match op with
+    | MOV (dst, src) -> Printf.sprintf "mov %s, %s" (fmt_reg dst) (fmt_reg src)
+    | MOV_IMM (dst, imm) -> Printf.sprintf "mov %s, #%Ld" (fmt_reg dst) imm
     | LOAD (dst, addr, size) -> 
       let suffix = match size with 1 -> "b" | 2 -> "h" | 4 -> "w" | _ -> "" in
-      Printf.sprintf "ldr%s %s, %s" suffix (format_reg dst) (format_addr_mode addr)
+      Printf.sprintf "ldr%s %s, %s" suffix (fmt_reg dst) (format_addr_mode addr)
     | STORE (src, addr, size) ->
       let suffix = match size with 1 -> "b" | 2 -> "h" | 4 -> "w" | _ -> "" in
-      Printf.sprintf "str%s %s, %s" suffix (format_reg src) (format_addr_mode addr)
-    | LEA (dst, addr) -> Printf.sprintf "lea %s, %s" (format_reg dst) (format_addr_mode addr)
-    | ADD (dst, src1, src2) -> Printf.sprintf "add %s, %s, %s" (format_reg dst) (format_reg src1) (format_reg src2)
-    | SUB (dst, src1, src2) -> Printf.sprintf "sub %s, %s, %s" (format_reg dst) (format_reg src1) (format_reg src2)
-    | MUL (dst, src1, src2) -> Printf.sprintf "mul %s, %s, %s" (format_reg dst) (format_reg src1) (format_reg src2)
-    | AND (dst, src1, src2) -> Printf.sprintf "and %s, %s, %s" (format_reg dst) (format_reg src1) (format_reg src2)
-    | OR (dst, src1, src2) -> Printf.sprintf "orr %s, %s, %s" (format_reg dst) (format_reg src1) (format_reg src2)
-    | XOR (dst, src1, src2) -> Printf.sprintf "eor %s, %s, %s" (format_reg dst) (format_reg src1) (format_reg src2)
-    | CMP (src1, src2) -> Printf.sprintf "cmp %s, %s" (format_reg src1) (format_reg src2)
+      Printf.sprintf "str%s %s, %s" suffix (fmt_reg src) (format_addr_mode addr)
+    | LEA (dst, addr) -> Printf.sprintf "lea %s, %s" (fmt_reg dst) (format_addr_mode addr)
+    | ADD (dst, src1, src2) -> Printf.sprintf "add %s, %s, %s" (fmt_reg dst) (fmt_reg src1) (fmt_reg src2)
+    | SUB (dst, src1, src2) -> Printf.sprintf "sub %s, %s, %s" (fmt_reg dst) (fmt_reg src1) (fmt_reg src2)
+    | MUL (dst, src1, src2) -> Printf.sprintf "mul %s, %s, %s" (fmt_reg dst) (fmt_reg src1) (fmt_reg src2)
+    | AND (dst, src1, src2) -> Printf.sprintf "and %s, %s, %s" (fmt_reg dst) (fmt_reg src1) (fmt_reg src2)
+    | OR (dst, src1, src2) -> Printf.sprintf "orr %s, %s, %s" (fmt_reg dst) (fmt_reg src1) (fmt_reg src2)
+    | XOR (dst, src1, src2) -> Printf.sprintf "eor %s, %s, %s" (fmt_reg dst) (fmt_reg src1) (fmt_reg src2)
+    | CMP (src1, src2) -> Printf.sprintf "cmp %s, %s" (fmt_reg src1) (fmt_reg src2)
     | JMP label -> Printf.sprintf "b %s" label
     | JCC (cond, label) -> Printf.sprintf "b.%s %s" (format_cond cond) label
     | CALL (_, Some name) -> Printf.sprintf "bl %s" name
     | RET -> "ret"
-    | PUSH r -> Printf.sprintf "push %s" (format_reg r)
-    | POP r -> Printf.sprintf "pop %s" (format_reg r)
+    | PUSH r -> Printf.sprintf "push %s" (fmt_reg r)
+    | POP r -> Printf.sprintf "pop %s" (fmt_reg r)
     | ADJUST_SP off -> 
       if off < 0L then Printf.sprintf "sub sp, sp, #%Ld" (Int64.neg off)
       else Printf.sprintf "add sp, sp, #%Ld" off
