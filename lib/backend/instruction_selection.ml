@@ -139,7 +139,16 @@ module InstructionSelector (M: MACHINE) = struct
       try
         List.assoc v !reg_alloc
       with Not_found ->
-        let r = make_gpr !next_reg M.config.ptr_size in
+        (* Determine register size based on value type *)
+        let size = match v.Values.ty with
+          | Types.Scalar Types.I8 | Types.Scalar Types.I16 | Types.Scalar Types.I32 -> 4
+          | Types.Scalar Types.I64 | Types.Ptr -> 8
+          | Types.Scalar Types.I1 -> 1
+          | Types.Scalar Types.F32 -> 4
+          | Types.Scalar Types.F64 -> 8
+          | _ -> M.config.ptr_size
+        in
+        let r = make_gpr !next_reg size in
         incr next_reg;
         reg_alloc := (v, r) :: !reg_alloc;
         r
@@ -167,15 +176,21 @@ module InstructionSelector (M: MACHINE) = struct
         M.emit_epilogue frame @ [{ label = None; op = RET; comment = Some "return void" }]
       | Instructions.Ret (Some v) ->
         let r = get_reg v in
-        let x0 = make_gpr 0 M.config.ptr_size in
-        (* Only emit MOV if value is not already in x0 *)
-        let mov_instrs = 
-          if r.reg_index = 0 && r.reg_class = GPR then
-            [] (* Value already in x0, no move needed *)
-          else
-            [{ label = None; op = MOV (x0, r); comment = Some "return value" }]
+        (* Determine register size based on value type *)
+        let ret_reg = match v.Values.ty with
+          | Types.Scalar Types.I8 | Types.Scalar Types.I16 | Types.Scalar Types.I32 -> 
+            make_gpr 0 4  (* Use w0 for 32-bit and smaller integers *)
+          | _ -> 
+            make_gpr 0 M.config.ptr_size  (* Use x0 for 64-bit values *)
         in
-        (* First move return value to x0, then emit epilogue *)
+        (* Only emit MOV if value is not already in the return register *)
+        let mov_instrs = 
+          if r.reg_index = 0 && r.reg_class = GPR && r.reg_size = ret_reg.reg_size then
+            [] (* Value already in correct return register, no move needed *)
+          else
+            [{ label = None; op = MOV (ret_reg, r); comment = Some "return value" }]
+        in
+        (* First move return value to return register, then emit epilogue *)
         mov_instrs @ M.emit_epilogue frame @ [{ label = None; op = RET; comment = Some "return" }]
       | Instructions.Br (cond, then_lbl, else_lbl) ->
         let r = get_reg cond in
@@ -192,9 +207,14 @@ module InstructionSelector (M: MACHINE) = struct
   
   (* Select instructions for a function *)
   let select_function (func: Instructions.func) : machine_instr list =
-    (* Compute frame info *)
+    (* For simple functions, use minimal frame *)
+    (* TODO: Proper frame size calculation based on actual locals and spills *)
+    let is_simple_function = 
+      List.length func.blocks = 1 &&
+      List.length (List.hd func.blocks).instructions <= 2
+    in
     let frame = {
-      frame_size = 64;  (* Placeholder *)
+      frame_size = if is_simple_function then 16 else 64;  (* Minimal for simple functions *)
       locals_offset = 16;
       spill_offset = 32;
       callee_save_offset = 48;

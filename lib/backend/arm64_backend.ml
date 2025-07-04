@@ -238,26 +238,43 @@ let arm64_select_pattern ty =
 
 (* Emit function prologue *)
 let emit_arm64_prologue frame =
-  (* ARM64 typically saves FP and LR together *)
-  [
-    { label = None; op = STORE (x29, PreIndex (sp, Int64.neg 16L), 8); 
-      comment = Some "save FP and LR with pre-decrement" };
-    { label = None; op = STORE (x30, Offset (sp, 8L), 8); 
-      comment = None };
-    { label = None; op = MOV (x29, sp); comment = Some "set up frame pointer" };
-    { label = None; op = ADJUST_SP (Int64.neg (Int64.of_int frame.frame_size)); 
-      comment = Some (Printf.sprintf "allocate %d bytes" frame.frame_size) };
-  ]
+  (* For leaf functions with small frames, use simplified prologue *)
+  if frame.frame_size <= 16 then
+    (* Simple leaf function - just adjust stack *)
+    [
+      { label = None; op = ADJUST_SP (Int64.neg (Int64.of_int frame.frame_size)); 
+        comment = Some (Printf.sprintf "allocate %d bytes" frame.frame_size) };
+    ]
+  else
+    (* Standard prologue for non-leaf functions *)
+    [
+      { label = None; op = STORE (x29, PreIndex (sp, Int64.neg 16L), 8); 
+        comment = Some "save FP and LR with pre-decrement" };
+      { label = None; op = STORE (x30, Offset (sp, 8L), 8); 
+        comment = None };
+      { label = None; op = MOV (x29, sp); comment = Some "set up frame pointer" };
+      { label = None; op = ADJUST_SP (Int64.neg (Int64.of_int frame.frame_size)); 
+        comment = Some (Printf.sprintf "allocate %d bytes" frame.frame_size) };
+    ]
 
 (* Emit function epilogue *)
 let emit_arm64_epilogue frame =
-  [
-    { label = None; op = MOV (sp, x29); comment = Some "restore stack pointer" };
-    { label = None; op = LOAD (x29, PostIndex (sp, 16L), 8); 
-      comment = Some "restore FP and LR with post-increment" };
-    { label = None; op = LOAD (x30, Offset (sp, Int64.neg 8L), 8); 
-      comment = None };
-  ]
+  (* For leaf functions with small frames, use simplified epilogue *)
+  if frame.frame_size <= 16 then
+    (* Simple leaf function - just adjust stack back *)
+    [
+      { label = None; op = ADJUST_SP (Int64.of_int frame.frame_size); 
+        comment = Some "deallocate stack frame" };
+    ]
+  else
+    (* Standard epilogue for non-leaf functions *)
+    [
+      { label = None; op = MOV (sp, x29); comment = Some "restore stack pointer" };
+      { label = None; op = LOAD (x29, PostIndex (sp, 16L), 8); 
+        comment = Some "restore FP and LR with post-increment" };
+      { label = None; op = LOAD (x30, Offset (sp, Int64.neg 8L), 8); 
+        comment = None };
+    ]
 
 (* Pattern for return-like instruction - using a dummy constant for pattern matching *)
 let arm64_ret_pattern has_value =
@@ -775,8 +792,9 @@ let materialize_arm64_constant value ty dst =
   match ty with
   | Types.Scalar scalar_ty ->
     if value = 0L then
-      (* Use zero register *)
-      [{ label = None; op = MOV (dst, xzr); comment = Some "load zero" }]
+      (* Use zero register - wzr for 32-bit, xzr for 64-bit *)
+      let zr = if dst.reg_size = 4 then make_gpr 31 4 else xzr in
+      [{ label = None; op = MOV (dst, zr); comment = Some "load zero" }]
     else
       (* For simple cases, just use MOV_IMM which will be expanded during assembly *)
       [{ label = None; op = MOV_IMM (dst, value); comment = Some (Printf.sprintf "load constant %Ld" value) }]
