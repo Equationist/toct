@@ -197,6 +197,12 @@
  (modules test_debug_if)
  (modes byte))
 
+(executable
+ (name test_loop_simple_debug)
+ (libraries c_frontend compilerkit.pir compilerkit.backend)
+ (modules test_loop_simple_debug)
+ (modes byte))
+
 (rule
  (alias runtest)
  (action (run ./test_preprocessor.exe)))

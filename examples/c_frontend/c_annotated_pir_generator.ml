@@ -430,29 +430,106 @@ let rec gen_annotated_stmt ctx annotated_stmt =
     ) block_params
   
   | WhileStmt (cond_expr, body_stmt) ->
+    (* Save current variable bindings *)
+    let initial_bindings = Hashtbl.copy ctx.value_map in
+    
     (* Create labels *)
     let loop_header = fresh_label ctx in
     let loop_body = fresh_label ctx in
     let loop_end = fresh_label ctx in
     
-    (* Jump to loop header *)
-    finish_block ctx (Jmp (loop_header, []));
+    (* We need to do a preliminary analysis to find loop-carried variables *)
+    (* For now, we'll collect all variables that might be modified in the loop *)
+    let potential_loop_vars = ref [] in
+    
+    (* Simple heuristic: collect all variables referenced in the condition *)
+    let rec collect_vars_in_expr expr =
+      match expr with
+      | Ident name -> 
+        if not (List.mem name !potential_loop_vars) then
+          potential_loop_vars := name :: !potential_loop_vars
+      | BinOp (_, left, right) ->
+        collect_vars_in_expr left;
+        collect_vars_in_expr right
+      | UnOp (_, operand) ->
+        collect_vars_in_expr operand
+      | _ -> ()
+    in
+    collect_vars_in_expr cond_expr;
+    
+    (* Create block parameters for loop header *)
+    let loop_params = List.filter_map (fun var ->
+      match Hashtbl.find_opt ctx.var_types var with
+      | Some ty -> Some (var, ty)
+      | None ->
+        match lookup_symbol ctx.symbol_table var with
+        | Some sym ->
+          (match c_type_to_pir_type sym.c_type with
+           | Some ty -> 
+             Hashtbl.replace ctx.var_types var ty;
+             Some (var, ty)
+           | None -> None)
+        | None -> None
+    ) !potential_loop_vars in
+    
+    (* Initial jump to loop header with initial values *)
+    let initial_args = List.map (fun var ->
+      match Hashtbl.find_opt ctx.value_map var with
+      | Some v -> v
+      | None -> failwith ("Variable not found for loop: " ^ var)
+    ) !potential_loop_vars in
+    finish_block ctx (Jmp (loop_header, initial_args));
     
     (* Loop header - evaluate condition *)
-    start_block ctx loop_header;
+    start_block_with_params ctx loop_header loop_params;
+    
+    (* Update value map with block parameters *)
+    List.iter (fun (var, ty) ->
+      let param_value = create_simple_value ty in
+      Hashtbl.replace ctx.value_map var param_value
+    ) loop_params;
+    
     let cond_val = gen_annotated_expr_raw ctx cond_expr in
     finish_block ctx (Br (cond_val, loop_body, loop_end));
     
     (* Loop body *)
     start_block ctx loop_body;
+    
+    (* Track assignments in loop body *)
+    let body_label = loop_body in
+    Hashtbl.replace ctx.block_assignments body_label [];
+    
     gen_annotated_stmt ctx (annotate body_stmt empty_c_info);
+    
+    (* Collect values to pass back to loop header *)
+    let loop_args = List.map (fun var ->
+      match Hashtbl.find_opt ctx.value_map var with
+      | Some v -> v
+      | None -> 
+        (* Variable not modified in loop, use value from header *)
+        match Hashtbl.find_opt initial_bindings var with
+        | Some v -> v
+        | None -> failwith ("Variable not found: " ^ var)
+    ) !potential_loop_vars in
+    
     (* Jump back to header if block wasn't terminated *)
     (match ctx.current_block with
-     | Some _ -> finish_block ctx (Jmp (loop_header, []))
+     | Some _ -> finish_block ctx (Jmp (loop_header, loop_args))
      | None -> ());
     
     (* Continue after loop *)
-    start_block ctx loop_end
+    start_block ctx loop_end;
+    
+    (* Restore variable mappings after loop *)
+    (* Variables modified in loop should use their final values *)
+    List.iter (fun var ->
+      match List.assoc_opt var loop_params with
+      | Some ty ->
+        (* This variable was a loop parameter, keep its last value *)
+        let param_value = create_simple_value ty in
+        Hashtbl.replace ctx.value_map var param_value
+      | None -> ()
+    ) !potential_loop_vars
   
   | ForStmt (init_opt, cond_opt, update_opt, body_stmt) ->
     (* Generate initialization if present *)
@@ -467,11 +544,67 @@ let rec gen_annotated_stmt ctx annotated_stmt =
     let loop_continue = fresh_label ctx in
     let loop_end = fresh_label ctx in
     
-    (* Jump to loop header *)
-    finish_block ctx (Jmp (loop_header, []));
+    (* Collect potential loop variables from condition, update, and body *)
+    let potential_loop_vars = ref [] in
+    
+    let rec collect_vars_in_expr expr =
+      match expr with
+      | Ident name -> 
+        if not (List.mem name !potential_loop_vars) then
+          potential_loop_vars := name :: !potential_loop_vars
+      | BinOp (_, left, right) ->
+        collect_vars_in_expr left;
+        collect_vars_in_expr right
+      | UnOp (_, operand) ->
+        collect_vars_in_expr operand
+      | FuncCall (func_expr, arg_exprs) ->
+        collect_vars_in_expr func_expr;
+        List.iter collect_vars_in_expr arg_exprs
+      | _ -> ()
+    in
+    
+    (* Collect from condition *)
+    (match cond_opt with
+     | Some cond_expr -> collect_vars_in_expr cond_expr
+     | None -> ());
+    
+    (* Collect from update *)
+    (match update_opt with
+     | Some update_expr -> collect_vars_in_expr update_expr
+     | None -> ());
+    
+    (* Create block parameters for loop header *)
+    let loop_params = List.filter_map (fun var ->
+      match Hashtbl.find_opt ctx.var_types var with
+      | Some ty -> Some (var, ty)
+      | None ->
+        match lookup_symbol ctx.symbol_table var with
+        | Some sym ->
+          (match c_type_to_pir_type sym.c_type with
+           | Some ty -> 
+             Hashtbl.replace ctx.var_types var ty;
+             Some (var, ty)
+           | None -> None)
+        | None -> None
+    ) !potential_loop_vars in
+    
+    (* Initial jump to loop header with initial values *)
+    let initial_args = List.map (fun var ->
+      match Hashtbl.find_opt ctx.value_map var with
+      | Some v -> v
+      | None -> failwith ("Variable not found for loop: " ^ var)
+    ) !potential_loop_vars in
+    finish_block ctx (Jmp (loop_header, initial_args));
     
     (* Loop header - evaluate condition *)
-    start_block ctx loop_header;
+    start_block_with_params ctx loop_header loop_params;
+    
+    (* Update value map with block parameters *)
+    List.iter (fun (var, ty) ->
+      let param_value = create_simple_value ty in
+      Hashtbl.replace ctx.value_map var param_value
+    ) loop_params;
+    
     let cond_val = match cond_opt with
       | Some cond_expr -> gen_annotated_expr_raw ctx cond_expr
       | None -> 
@@ -485,21 +618,54 @@ let rec gen_annotated_stmt ctx annotated_stmt =
     (* Loop body *)
     start_block ctx loop_body;
     gen_annotated_stmt ctx (annotate body_stmt empty_c_info);
+    
+    (* Collect current values for continue block *)
+    let body_end_values = List.map (fun var ->
+      match Hashtbl.find_opt ctx.value_map var with
+      | Some v -> v
+      | None -> failwith ("Variable not found after body: " ^ var)
+    ) !potential_loop_vars in
+    
     (* Jump to continue label if block wasn't terminated *)
     (match ctx.current_block with
-     | Some _ -> finish_block ctx (Jmp (loop_continue, []))
+     | Some _ -> finish_block ctx (Jmp (loop_continue, body_end_values))
      | None -> ());
     
     (* Continue label - update expression *)
-    start_block ctx loop_continue;
+    start_block_with_params ctx loop_continue loop_params;
+    
+    (* Update value map with block parameters from body *)
+    List.iter (fun (var, ty) ->
+      let param_value = create_simple_value ty in
+      Hashtbl.replace ctx.value_map var param_value
+    ) loop_params;
+    
     (match update_opt with
      | Some update_expr -> 
        let _ = gen_annotated_expr_raw ctx update_expr in ()
      | None -> ());
-    finish_block ctx (Jmp (loop_header, []));
+    
+    (* Collect values after update to pass back to header *)
+    let continue_end_values = List.map (fun var ->
+      match Hashtbl.find_opt ctx.value_map var with
+      | Some v -> v
+      | None -> failwith ("Variable not found after update: " ^ var)
+    ) !potential_loop_vars in
+    
+    finish_block ctx (Jmp (loop_header, continue_end_values));
     
     (* Continue after loop *)
-    start_block ctx loop_end
+    start_block ctx loop_end;
+    
+    (* Restore variable mappings after loop *)
+    List.iter (fun var ->
+      match List.assoc_opt var loop_params with
+      | Some ty ->
+        (* This variable was a loop parameter, keep its last value *)
+        let param_value = create_simple_value ty in
+        Hashtbl.replace ctx.value_map var param_value
+      | None -> ()
+    ) !potential_loop_vars
   
   | _ -> failwith "Statement not implemented for annotated AST"
 

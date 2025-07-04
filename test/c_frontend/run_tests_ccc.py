@@ -46,10 +46,10 @@ def compile_and_run_with_ccc(c_file):
     
     # Get the CCC compiler path (relative to repo root)
     repo_root = Path(__file__).parent.parent.parent
-    ccc_path = repo_root / "_build/default/bin/ccc_proper.bc"
+    ccc_path = repo_root / "_build/default/examples/c_frontend/ccc.bc"
     
     if not ccc_path.exists():
-        return None, f"CCC compiler not found at {ccc_path}. Run 'dune build bin/ccc_proper.bc' first."
+        return None, f"CCC compiler not found at {ccc_path}. Run 'dune build examples/c_frontend/ccc.bc' first."
     
     # Compile with CCC
     compile_cmd = f"{ccc_path} {c_file} -o {exe_name}"
@@ -242,17 +242,18 @@ def main():
     
     # Check if CCC compiler is built
     repo_root = Path(__file__).parent.parent.parent
-    ccc_path = repo_root / "_build/default/bin/ccc_enhanced.bc"
+    ccc_path = repo_root / "_build/default/examples/c_frontend/ccc.bc"
     
     if not ccc_path.exists():
         print(f"{RED}ERROR: CCC compiler not found at {ccc_path}{RESET}")
-        print("Please run: dune build bin/ccc_enhanced.bc")
+        print("Please run: dune build examples/c_frontend/ccc.bc")
         return 1
     
     test_root = Path(__file__).parent
     
     # Test categories
     test_categories = [
+        ("simple", "Simple tests (return values only)"),
         ("basic", "Basic C constructs"),
         ("functions", "Function definitions and calls"),
         ("pointers", "Pointer and array operations"),

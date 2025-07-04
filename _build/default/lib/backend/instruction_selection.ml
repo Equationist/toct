@@ -225,11 +225,22 @@ module InstructionSelector (M: MACHINE) = struct
           | _ -> 
             (* Fallback if no result value - shouldn't happen for constants *)
             failwith "Constant instruction without result value")
+        | Instructions.Const (Values.ConstZero ty) ->
+          (* For zero constants from dummy nodes (value references), emit nothing *)
+          (* Real ConstZero instructions should have instr_context *)
+          (match instr_context with
+          | Some { result = Some result_val; _ } ->
+            let dst_reg = reg_alloc result_val in
+            M.materialize_constant 0L ty dst_reg
+          | None -> 
+            (* This is a dummy node for value reference - emit nothing *)
+            []
+          | _ -> 
+            failwith "ConstZero instruction without result value")
         | Instructions.Const c ->
           (* Debug other const types *)
           Printf.eprintf "DEBUG emit_code: Const type not handled: %s\n"
             (match c with
-             | Values.ConstZero _ -> "ConstZero"
              | Values.ConstNull -> "ConstNull"
              | _ -> "Other");
           []
@@ -245,9 +256,34 @@ module InstructionSelector (M: MACHINE) = struct
       child_code @ node_code
   
   (* Select instructions for a basic block *)
-  let select_block (frame: frame_info) (block: Instructions.basic_block) : machine_instr list =
+  let select_block (frame: frame_info) (block: Instructions.basic_block) (block_param_regs: ((string * int) * reg) list ref) : machine_instr list =
     let reg_alloc = ref [] in
     let next_reg = ref 0 in
+    
+    (* Handle block parameters by creating placeholder values *)
+    let param_code = ref [] in
+    List.iteri (fun idx (param_name, param_ty) ->
+      (* Create a dummy value for the parameter *)
+      let param_val = Values.create_simple_value param_ty in
+      
+      (* Allocate register for parameter *)
+      let size = match param_ty with
+        | Types.Scalar Types.I8 | Types.Scalar Types.I16 | Types.Scalar Types.I32 -> 4
+        | Types.Scalar Types.I64 | Types.Ptr -> 8
+        | Types.Scalar Types.I1 -> 1
+        | Types.Scalar Types.F32 -> 4
+        | Types.Scalar Types.F64 -> 8
+        | _ -> M.config.ptr_size
+      in
+      let param_reg = make_gpr (!next_reg + idx) size in
+      reg_alloc := (param_val, param_reg) :: !reg_alloc;
+      
+      (* Store block parameter info *)
+      block_param_regs := ((block.label, idx), param_reg) :: !block_param_regs
+    ) block.params;
+    
+    (* Update next register to account for parameters *)
+    next_reg := !next_reg + List.length block.params;
     
     (* Simple register allocator for now *)
     let get_reg (v: Values.value) : reg =
@@ -315,7 +351,28 @@ module InstructionSelector (M: MACHINE) = struct
          { label = None; op = JCC (NE, then_lbl); comment = Some "branch if true" };
          { label = None; op = JMP else_lbl; comment = Some "branch if false" }]
       | Instructions.Jmp (lbl, args) ->
-        (* TODO: Handle block arguments - for now just jump *)
+        (* Handle block arguments by moving them to expected registers *)
+        let arg_moves = List.mapi (fun idx arg ->
+          let src_reg = get_reg arg in
+          (* Find the destination register for this block parameter *)
+          match List.assoc_opt (lbl, idx) !block_param_regs with
+          | Some dst_reg ->
+            if src_reg.reg_index = dst_reg.reg_index && 
+               src_reg.reg_size = dst_reg.reg_size then
+              [] (* Already in right register *)
+            else
+              [{ label = None; op = MOV (dst_reg, src_reg); 
+                 comment = Some (Printf.sprintf "arg %d for block %s" idx lbl) }]
+          | None ->
+            (* If no parameter info, still emit move to standard location *)
+            let dst_reg = make_gpr idx (match arg.ty with
+              | Types.Scalar Types.I32 -> 4
+              | Types.Scalar Types.I64 | Types.Ptr -> 8
+              | _ -> 4) in
+            [{ label = None; op = MOV (dst_reg, src_reg); 
+               comment = Some (Printf.sprintf "arg %d for block %s" idx lbl) }]
+        ) args in
+        List.flatten arg_moves @ 
         [{ label = None; op = JMP lbl; comment = Some "unconditional jump" }]
       | Instructions.Switch _ -> failwith "Switch not implemented yet"
       | Instructions.Unreachable -> []
@@ -342,10 +399,13 @@ module InstructionSelector (M: MACHINE) = struct
     (* Emit prologue *)
     let prologue = M.emit_prologue frame in
     
+    (* Track block parameter info across the function *)
+    let block_param_regs = ref [] in
+    
     (* Select instructions for each block *)
     let blocks_code = List.concat (List.map (fun block ->
       (* First instruction of block gets the label *)
-      let block_instrs = select_block frame block in
+      let block_instrs = select_block frame block block_param_regs in
       match block_instrs with
       | [] -> []
       | first :: rest -> 
