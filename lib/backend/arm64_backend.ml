@@ -369,7 +369,12 @@ let emit_arm64_call name arg_regs result_reg =
   (* Move arguments to calling convention registers *)
   let arg_moves = List.mapi (fun i arg_reg ->
     if i < 8 then
-      { label = None; op = MOV (List.nth arm64_calling_conv.int_arg_regs i, arg_reg); 
+      (* Use correct size calling convention register to match argument size *)
+      let conv_reg = 
+        let base_reg = List.nth arm64_calling_conv.int_arg_regs i in
+        make_gpr base_reg.reg_index arg_reg.reg_size
+      in
+      { label = None; op = MOV (conv_reg, arg_reg); 
         comment = Some (Printf.sprintf "arg %d" i) }
     else
       (* Push pairs of registers for better alignment *)
@@ -382,7 +387,10 @@ let emit_arm64_call name arg_regs result_reg =
   
   (* Get result if needed *)
   let result_move = match result_reg with
-    | Some dst -> [{ label = None; op = MOV (dst, x0); comment = Some "get result" }]
+    | Some dst -> 
+      (* Use correct size return register to match destination size *)
+      let ret_reg = make_gpr 0 dst.reg_size in
+      [{ label = None; op = MOV (dst, ret_reg); comment = Some "get result" }]
     | None -> []
   in
   

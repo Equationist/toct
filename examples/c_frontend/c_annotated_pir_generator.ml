@@ -185,6 +185,18 @@ let rec gen_annotated_expr ctx annotated_expr =
         | Ident name ->
           Hashtbl.replace ctx.value_map name right_val;
           right_val
+        | ArrayRef (array_expr, index_expr) ->
+          (* Get array base and index *)
+          let array_val = gen_annotated_expr_raw ctx array_expr in
+          let index_val = gen_annotated_expr_raw ctx index_expr in
+          
+          (* Calculate element address using GEP *)
+          let addr_val = create_simple_value Ptr in
+          emit_instr ctx ~result:addr_val (Address (Gep (array_val, index_val)));
+          
+          (* Store the value to the address *)
+          emit_instr ctx (Memory (Store (right_val, addr_val)));
+          right_val
         | _ -> failwith "Complex assignment not yet implemented")
      
      | _ -> failwith ("Binary operator not implemented"))
@@ -203,6 +215,20 @@ let rec gen_annotated_expr ctx annotated_expr =
     (* Emit call instruction *)
     emit_instr ctx ~result:result_value (Call (Call (func_val, arg_vals)));
     result_value
+    
+  | ArrayRef (array_expr, index_expr) ->
+    (* Generate array base and index *)
+    let array_val = gen_annotated_expr_raw ctx array_expr in
+    let index_val = gen_annotated_expr_raw ctx index_expr in
+    
+    (* Calculate element address using GEP *)
+    let addr_val = create_simple_value Ptr in
+    emit_instr ctx ~result:addr_val (Address (Gep (array_val, index_val)));
+    
+    (* Load the value from the address *)
+    let result_val = create_simple_value (Scalar I32) in  (* Assume int array for now *)
+    emit_instr ctx ~result:result_val (Memory (Load (Scalar I32)));
+    result_val
     
   | _ ->
     failwith "Expression not implemented for annotated AST"
@@ -364,21 +390,33 @@ and gen_annotated_block_item ctx annotated_item =
       let var_type, var_name = process_declarator ctx.symbol_table.type_env base_type quals declarator in
       
       (* Create PIR value for the variable *)
-      (match c_type_to_pir_type var_type with
-       | Some pir_ty ->
-         let var_value = create_simple_value pir_ty in
-         Hashtbl.add ctx.value_map var_name var_value;
+      (match var_type with
+       | Array (_elem_type, size_opt, _quals) when size_opt <> None ->
+         let size = match size_opt with Some s -> s | None -> 0 in
+         (* For arrays, allocate space on the stack *)
+         let size_val = create_simple_value (Scalar I64) in
+         emit_instr ctx ~result:size_val (Const (ConstInt (Int64.of_int size, I64)));
          
-         (* If there's an initializer, generate code for it *)
-         (match init with
-          | Some (ExprInit init_expr) ->
-            let init_val = gen_annotated_expr_raw ctx init_expr in
-            (* For now, just update the value map - proper SSA would need alloca/store *)
-            Hashtbl.replace ctx.value_map var_name init_val
-          | Some (ListInit _) ->
-            failwith "List initializers not yet implemented"
-          | None -> ())
-       | None -> failwith ("Cannot convert variable type to PIR: " ^ string_of_c_type var_type))
+         let array_ptr = create_simple_value Ptr in
+         (* Alloca needs size and alignment - use default alignment of 8 *)
+         emit_instr ctx ~result:array_ptr (Memory (Alloca (size_val, 8)));
+         Hashtbl.add ctx.value_map var_name array_ptr
+       | _ ->
+         (match c_type_to_pir_type var_type with
+          | Some pir_ty ->
+            let var_value = create_simple_value pir_ty in
+            Hashtbl.add ctx.value_map var_name var_value;
+            
+            (* If there's an initializer, generate code for it *)
+            (match init with
+             | Some (ExprInit init_expr) ->
+               let init_val = gen_annotated_expr_raw ctx init_expr in
+               (* For now, just update the value map - proper SSA would need alloca/store *)
+               Hashtbl.replace ctx.value_map var_name init_val
+             | Some (ListInit _) ->
+               failwith "List initializers not yet implemented"
+             | None -> ())
+          | None -> failwith ("Cannot convert variable type to PIR: " ^ string_of_c_type var_type)))
     ) init_decls
 
 (** Extract function name from declarator *)
@@ -439,9 +477,13 @@ let gen_annotated_func_def ctx annotated_func_def =
   List.iter2 (fun param pir_param ->
     match param.param_name with
     | Some name ->
-      let (_, pir_ty) = pir_param in
+      let (param_pir_name, pir_ty) = pir_param in
+      (* Create parameter value - these are special values that represent function parameters *)
       let param_val = create_simple_value pir_ty in
-      Hashtbl.add ctx.value_map name param_val
+      (* Add to value map using the C parameter name *)
+      Hashtbl.add ctx.value_map name param_val;
+      (* Also add using the PIR parameter name for consistency *)
+      Hashtbl.add ctx.value_map param_pir_name param_val
     | None -> ()
   ) params pir_params;
   

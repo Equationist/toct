@@ -8,7 +8,7 @@
 _add:
 .cfi_startproc
 	sub sp, sp, #16	; allocate 16 bytes
-entry:
+.Lentry:
 	add w0, w2, w1	; add
 	add sp, sp, #16	; deallocate stack frame
 	ret	; return
@@ -22,13 +22,13 @@ _main:
 	str x30, [sp, #8]
 	mov x29, sp	; set up frame pointer
 	sub sp, sp, #64	; allocate 64 bytes
-entry:
+.Lentry:
 	mov w0, #10	; load constant 10
 	mov w1, #20	; load constant 20
-	mov x0, w0	; arg 0
-	mov x1, w1	; arg 1
+	mov w0, w0	; arg 0
+	mov w1, w1	; arg 1
 	bl _add	; branch with link
-	mov w2, x0	; get result
+	mov w2, w0	; get result
 	mov w0, w2	; return value
 	mov sp, x29	; restore stack pointer
 	ldr x29, [sp], #16	; restore FP and LR with post-increment

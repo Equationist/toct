@@ -160,9 +160,17 @@ module CodeGenerator (M: MACHINE) = struct
       Printf.sprintf "%s %s, %s" op (fmt_reg dst) (fmt_reg src)
     | _ -> "TODO"  (* For any truly unhandled operations *)
   
-  let format_machine_instr ?(format_symbol=(fun x -> x)) (instr: machine_instr) : string =
+  let format_machine_instr ?(format_symbol=(fun x -> x)) ?(func_name="") (instr: machine_instr) : string =
     let label_str = match instr.label with
-      | Some lbl -> Printf.sprintf "%s:\n" lbl
+      | Some lbl -> 
+        (* Make internal labels local with .L prefix *)
+        if lbl = "entry" then
+          (* Make entry label unique per function *)
+          Printf.sprintf ".L%s_%s:\n" func_name lbl
+        else if String.contains lbl 'L' then
+          Printf.sprintf ".L%s:\n" lbl
+        else
+          Printf.sprintf "%s:\n" lbl
       | None -> ""
     in
     let op_str = "\t" ^ format_machine_op ~format_symbol instr.op in
@@ -217,7 +225,7 @@ module CodeGenerator (M: MACHINE) = struct
         
         (* Emit instructions *)
         List.iter (fun instr ->
-          Buffer.add_string output (format_machine_instr ~format_symbol instr);
+          Buffer.add_string output (format_machine_instr ~format_symbol ~func_name:func.name instr);
           Buffer.add_char output '\n'
         ) instrs;
         
