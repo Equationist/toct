@@ -14,3 +14,4 @@ module Parser_utils = Parser_utils
 module Test_utils = Test_utils
 module Grammar_utils = Grammar_utils
 module Preprocessor_utils = Preprocessor_utils
+module Ast_annotation = Ast_annotation

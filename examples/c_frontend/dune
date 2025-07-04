@@ -1,7 +1,7 @@
 (library
  (name c_frontend)
  (libraries unix compilerkit.frontend compilerkit.pir)
- (modules preprocessor lexer ast parser c_symbol_table c_errors c_lexer_utils c_type_system c_scoped_symbol_table c_type_checker c_pir_generator))
+ (modules preprocessor lexer ast parser c_symbol_table c_errors c_lexer_utils c_type_system c_scoped_symbol_table c_type_checker c_pir_generator c_annotated_ast c_ast_annotator c_annotated_pir_generator))
 
 (executable
  (name test_preprocessor)
@@ -91,6 +91,18 @@
  (name test_parse_diagnostics)
  (libraries c_frontend)
  (modules test_parse_diagnostics)
+ (modes byte))
+
+(executable
+ (name test_preprocess_debug)
+ (libraries c_frontend)
+ (modules test_preprocess_debug)
+ (modes byte))
+
+(executable
+ (name test_annotation)
+ (libraries c_frontend)
+ (modules test_annotation)
  (modes byte))
 
 (rule
