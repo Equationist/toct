@@ -148,7 +148,12 @@ The **Tiny OCaml Compiler Toolkit (TOCT)** is a modular compiler infrastructure 
   - [x] **Type checker with C89 semantics and type compatibility**
   - [x] **PIR generator - AST to PIR translation with SSA form**
   - [x] **Frontend library dependency resolution and compilation fixes**
-  - [x] **Tests**: 45/51 parser tests passing, all preprocessor tests passing, full type system integration
+  - [x] **Generic AST annotation framework for reusable type and scope annotation**
+  - [x] **C-specific AST annotation system with proper type derivation**
+  - [x] **Binary operation type derivation using C's usual arithmetic conversions**
+  - [x] **Scope handling with variable shadowing support following C89 rules**
+  - [x] **Annotated PIR generator for type-aware code generation**
+  - [x] **Tests**: 45/51 parser tests passing, all preprocessor tests passing, full type system integration, AST annotation system verified
 
 ### Phase 5: End-to-End Testing & Validation
 
@@ -312,6 +317,15 @@ compilerkit/
   - Successfully integrated all type system modules into working C frontend library
   - Verified end-to-end compilation pipeline works correctly in bytecode mode
   - C frontend library now demonstrates complete type checking and PIR generation capabilities
+- **2025-07-04**: Implemented Comprehensive AST Annotation System:
+  - Created generic AST annotation framework in `lib/frontend/ast_annotation.ml` for reusable type-safe annotation across language frontends
+  - Built C-specific annotation types and utilities in `c_annotated_ast.ml` with support for types, scopes, symbol references, lvalue detection
+  - Implemented complete AST annotator in `c_ast_annotator.ml` that enriches C89 AST nodes with type information and symbol table references
+  - Added proper binary operation type derivation using C's usual arithmetic conversions (integer promotion, common type conversion)
+  - Enhanced scope handling with proper variable shadowing support following C89 scoping rules (file, function, prototype, block scopes)
+  - Created annotated PIR generator for type-aware code generation that uses annotation information for precise type handling
+  - Built comprehensive test suite demonstrating end-to-end annotation functionality from C code parsing through AST annotation
+  - System successfully processes C89 code and provides rich semantic information needed for accurate PIR generation and analysis
 
 ## References
 
