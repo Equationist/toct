@@ -11,3 +11,11 @@
  (package compilerkit)
  (modes byte)
  (libraries compilerkit_common compilerkit_pir))
+
+(executable
+ (public_name ccc-enhanced)
+ (name ccc_enhanced)
+ (package compilerkit)
+ (modes byte)
+ (flags (:standard -warn-error -26-27))
+ (libraries unix str))

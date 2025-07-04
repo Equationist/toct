@@ -1,0 +1,43 @@
+# OCaml build artifacts
+_build/
+*.native
+*.byte
+*.bc
+*.cma
+*.cmxa
+*.cmi
+*.cmo
+*.cmx
+*.o
+*.a
+*.so
+*.annot
+*.cmt
+*.cmti
+*.install
+
+# Dune
+.merlin-conf/
+dune-project.lock
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# Test output files
+*.preprocessed
+*.out
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
