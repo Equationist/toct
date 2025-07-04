@@ -12,6 +12,8 @@ type tree_node = {
   mutable selected_pattern: pattern option;
   mutable min_cost: int;
   mutable result_reg: reg option;
+  (* Store the original instruction context for accessing operands *)
+  mutable instr_context: Instructions.instruction option;
 }
 
 (* Build tree from instruction *)
@@ -67,18 +69,35 @@ let rec build_tree (instr: Instructions.instr) : tree_node =
     | Instructions.VaArg (v, _) -> [value_to_tree v]
     | Instructions.Fence _ -> []
   in
-  { instr; children; selected_pattern = None; min_cost = max_int; result_reg = None }
+  { instr; children; selected_pattern = None; min_cost = max_int; result_reg = None; instr_context = None }
 
 and value_to_tree (v: Values.value) : tree_node =
-  (* Convert value to a tree node - may need to load from memory *)
-  let dummy_instr = Instructions.Const (Values.const_of_value v) in
-  { instr = dummy_instr; children = []; selected_pattern = None; min_cost = 0; result_reg = None }
+  (* For now, create a dummy node for values *)
+  (* In a real implementation, we would track which instruction produced this value *)
+  (* For constants, we assume they've already been processed *)
+  let dummy_instr = Instructions.Const (Values.ConstZero v.Values.ty) in
+  (* Create a dummy pattern that always matches *)
+  let dummy_pattern = {
+    pir_pattern = dummy_instr;
+    cost = 0;
+    emit = (fun _ _ _ -> []); (* No code emitted for value references *)
+    constraints = [];
+    hints = [];
+  } in
+  { instr = dummy_instr; 
+    children = []; 
+    selected_pattern = Some dummy_pattern;  (* Pre-selected *)
+    min_cost = 0; 
+    result_reg = None; 
+    instr_context = None }
 
 (* Pattern matching *)
 let match_pattern (pattern: pattern) (node: tree_node) : bool =
   (* Simple pattern matching - in real implementation would be more sophisticated *)
   match pattern.pir_pattern, node.instr with
-  | Instructions.Binop (op1, _, _, _), Instructions.Binop (op2, _, _, _) -> op1 = op2
+  | Instructions.Binop (op1, _, v1, v2), Instructions.Binop (op2, _, v3, v4) -> 
+    (* Match if operation is same and types match *)
+    op1 = op2 && v1.Values.ty = v3.Values.ty && v2.Values.ty = v4.Values.ty
   | Instructions.Memory (Instructions.Load ty1), Instructions.Memory (Instructions.Load ty2) -> ty1 = ty2
   | Instructions.Memory (Instructions.Store _), Instructions.Memory (Instructions.Store _) -> true
   | Instructions.Const (Values.ConstInt (_, ty1)), Instructions.Const (Values.ConstInt (_, ty2)) -> ty1 = ty2
@@ -92,19 +111,64 @@ let rec compute_costs (patterns: pattern list) (node: tree_node) : unit =
   List.iter (compute_costs patterns) node.children;
   
   (* Try each pattern *)
+  let matched_count = ref 0 in
   List.iter (fun pattern ->
-    if match_pattern pattern node then
+    if match_pattern pattern node then begin
+      incr matched_count;
       let children_cost = List.fold_left (fun acc child -> acc + child.min_cost) 0 node.children in
       let total_cost = pattern.cost + children_cost in
       if total_cost < node.min_cost then begin
         node.min_cost <- total_cost;
         node.selected_pattern <- Some pattern
       end
+    end
   ) patterns
 
 (* Main instruction selection *)
 module InstructionSelector (M: MACHINE) = struct
   
+  (* Extract operand values from an instruction *)
+  let extract_operands (instr: Instructions.instr) : Values.value list =
+    match instr with
+    | Instructions.Binop (_, _, v1, v2) -> [v1; v2]
+    | Instructions.Icmp (_, v1, v2) -> [v1; v2]
+    | Instructions.Fcmp (_, v1, v2) -> [v1; v2]
+    | Instructions.Select (cond, v1, v2) -> [cond; v1; v2]
+    | Instructions.Memory (Instructions.Load _) -> []
+    | Instructions.Memory (Instructions.Store (v1, v2)) -> [v1; v2]
+    | Instructions.Memory (Instructions.Alloca (size, _)) -> [size]
+    | Instructions.Memory (Instructions.Memcpy (dst, src, size)) -> [dst; src; size]
+    | Instructions.Memory (Instructions.Memset (dst, byte, size)) -> [dst; byte; size]
+    | Instructions.Address (Instructions.Gep (base, idx)) -> [base; idx]
+    | Instructions.Address (Instructions.FieldAddr (base, _)) -> [base]
+    | Instructions.Address (Instructions.PtrAdd (base, offset)) -> [base; offset]
+    | Instructions.Cast cast_op ->
+      (match cast_op with
+       | Instructions.Bitcast v -> [v]
+       | Instructions.Trunc (v, _) -> [v]
+       | Instructions.Zext (v, _) -> [v]
+       | Instructions.Sext (v, _) -> [v]
+       | Instructions.Fptrunc (v, _) -> [v]
+       | Instructions.Fpext (v, _) -> [v]
+       | Instructions.Fptoui (v, _) -> [v]
+       | Instructions.Fptosi (v, _) -> [v]
+       | Instructions.Uitofp (v, _) -> [v]
+       | Instructions.Sitofp (v, _) -> [v])
+    | Instructions.Vector vec_op ->
+      (match vec_op with
+       | Instructions.Splat (v, _) -> [v]
+       | Instructions.Shuffle (v1, v2, _) -> [v1; v2]
+       | Instructions.ExtractLane (v, _) -> [v]
+       | Instructions.InsertLane (v, _, scalar) -> [v; scalar])
+    | Instructions.Call _ -> []  (* Handle separately *)
+    | Instructions.Phi _ -> []   (* Handle in SSA destruction *)
+    | Instructions.Const _ -> []
+    | Instructions.Freeze v -> [v]
+    | Instructions.ExtractValue (v, _) -> [v]
+    | Instructions.InsertValue (agg, v, _) -> [agg; v]
+    | Instructions.VaArg (v, _) -> [v]
+    | Instructions.Fence _ -> []
+
   (* Code emission with access to machine module and instruction context *)
   let rec emit_code_with_machine (node: tree_node) (reg_alloc: Values.value -> reg) (instr_context: Instructions.instruction option) : machine_instr list =
     match node.selected_pattern with
@@ -125,7 +189,22 @@ module InstructionSelector (M: MACHINE) = struct
           | _ -> 
             (* Fallback if no result value - shouldn't happen for constants *)
             failwith "Constant instruction without result value")
-        | _ -> pattern.emit reg_alloc
+        | Instructions.Const c ->
+          (* Debug other const types *)
+          Printf.eprintf "DEBUG emit_code: Const type not handled: %s\n"
+            (match c with
+             | Values.ConstZero _ -> "ConstZero"
+             | Values.ConstNull -> "ConstNull"
+             | _ -> "Other");
+          []
+        | _ ->
+          (* Extract result value and operand values *)
+          let result_val = match instr_context with
+            | Some { result; _ } -> result
+            | None -> None
+          in
+          let operands = extract_operands node.instr in
+          pattern.emit reg_alloc result_val operands
       in
       child_code @ node_code
   
@@ -160,6 +239,8 @@ module InstructionSelector (M: MACHINE) = struct
     List.iter (fun (instr: Instructions.instruction) ->
       (* Build tree *)
       let tree = build_tree instr.instr in
+      (* Also store the instruction context in the tree *)
+      tree.instr_context <- Some instr;
       
       (* Run BURS *)
       compute_costs M.patterns tree;
@@ -245,12 +326,20 @@ let make_binop_pattern op cost =
       Values.create_simple_value (Types.Scalar Types.I32),
       Values.create_simple_value (Types.Scalar Types.I32));
     cost;
-    emit = (fun reg_alloc ->
-      let dummy_reg = make_gpr 0 4 in
+    emit = (fun reg_alloc result_val operands ->
+      (* Get registers for result and operands *)
+      let dst_reg = match result_val with
+        | Some v -> reg_alloc v
+        | None -> failwith "Binary operation without result"
+      in
+      let src1_reg, src2_reg = match operands with
+        | [v1; v2] -> (reg_alloc v1, reg_alloc v2)
+        | _ -> failwith "Binary operation expects exactly 2 operands"
+      in
       match op with
-      | Instructions.Add -> [{ label = None; op = ADD (dummy_reg, dummy_reg, dummy_reg); comment = None }]
-      | Instructions.Sub -> [{ label = None; op = SUB (dummy_reg, dummy_reg, dummy_reg); comment = None }]
-      | Instructions.Mul -> [{ label = None; op = MUL (dummy_reg, dummy_reg, dummy_reg); comment = None }]
+      | Instructions.Add -> [{ label = None; op = ADD (dst_reg, src1_reg, src2_reg); comment = Some "add" }]
+      | Instructions.Sub -> [{ label = None; op = SUB (dst_reg, src1_reg, src2_reg); comment = Some "sub" }]
+      | Instructions.Mul -> [{ label = None; op = MUL (dst_reg, src1_reg, src2_reg); comment = Some "mul" }]
       | _ -> []
     );
     constraints = [RegClass GPR; RegClass GPR; RegClass GPR];

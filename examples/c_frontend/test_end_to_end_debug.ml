@@ -5,7 +5,10 @@ open Compilerkit_pir
 let test_simple_function () =
   let source = {|
 int main() {
-    return 42;
+    int a = 10;
+    int b = 5;
+    int result = a + b;
+    return result;
 }
 |} in
 

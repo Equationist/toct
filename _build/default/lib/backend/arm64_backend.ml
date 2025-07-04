@@ -56,10 +56,16 @@ let make_arm64_binop_pattern op ty =
     | Types.Scalar s -> Types.size_of_scalar s
     | _ -> 8
   in
-  let emit reg_alloc =
-    let dst = make_gpr 0 size in
-    let src1 = make_gpr 1 size in
-    let src2 = make_gpr 2 size in
+  let emit reg_alloc result_val operands =
+    (* Get registers for result and operands *)
+    let dst = match result_val with
+      | Some v -> reg_alloc v
+      | None -> failwith "Binary operation without result"
+    in
+    let src1, src2 = match operands with
+      | [v1; v2] -> (reg_alloc v1, reg_alloc v2)
+      | _ -> failwith "Binary operation expects exactly 2 operands"
+    in
     match op with
     | Instructions.Add -> 
       [{ label = None; op = ADD (dst, src1, src2); comment = Some "add" }]
@@ -85,7 +91,9 @@ let make_arm64_binop_pattern op ty =
       [{ label = None; op = UDIV (dst, src1, src2); comment = Some "unsigned divide" }]
     | Instructions.Srem ->
       (* ARM64 doesn't have a remainder instruction, compute as a - (a/b)*b *)
-      let tmp = make_gpr 3 size in
+      (* Need to allocate a temporary register *)
+      let tmp_val = Values.create_simple_value ty in
+      let tmp = reg_alloc tmp_val in
       [
         { label = None; op = DIV (tmp, src1, src2); comment = Some "signed divide for rem" };
         { label = None; op = MUL (tmp, tmp, src2); comment = Some "multiply quotient by divisor" };
@@ -93,7 +101,8 @@ let make_arm64_binop_pattern op ty =
       ]
     | Instructions.Urem ->
       (* Same for unsigned remainder *)
-      let tmp = make_gpr 3 size in
+      let tmp_val = Values.create_simple_value ty in
+      let tmp = reg_alloc tmp_val in
       [
         { label = None; op = UDIV (tmp, src1, src2); comment = Some "unsigned divide for rem" };
         { label = None; op = MUL (tmp, tmp, src2); comment = Some "multiply quotient by divisor" };
@@ -120,9 +129,16 @@ let arm64_load_pattern ty =
   {
     pir_pattern = Instructions.Memory (Instructions.Load ty);
     cost = 1;
-    emit = (fun reg_alloc ->
-      let dst = make_gpr 0 size in
-      let addr = make_gpr 1 8 in
+    emit = (fun reg_alloc result_val operands ->
+      let dst = match result_val with
+        | Some v -> reg_alloc v
+        | None -> failwith "Load without result"
+      in
+      (* Load takes the address as operand *)
+      let addr = match operands with
+        | [v] -> reg_alloc v
+        | _ -> failwith "Load expects exactly 1 operand (address)"
+      in
       let comment = match size with
         | 1 -> "load byte"
         | 2 -> "load halfword"
@@ -151,9 +167,12 @@ let arm64_store_pattern val_ty =
       Values.create_simple_value val_ty,
       Values.create_simple_value Types.Ptr));
     cost = 1;
-    emit = (fun reg_alloc ->
-      let src = if is_float then make_fpr 0 size else make_gpr 0 size in
-      let addr = make_gpr 1 8 in
+    emit = (fun reg_alloc result_val operands ->
+      (* Store has no result value *)
+      let src, addr = match operands with
+        | [v; a] -> (reg_alloc v, reg_alloc a)
+        | _ -> failwith "Store expects exactly 2 operands (value, address)"
+      in
       let comment = match size with
         | 1 -> "store byte"
         | 2 -> "store halfword"
@@ -174,10 +193,15 @@ let arm64_gep_pattern =
       Values.create_simple_value Types.Ptr,
       Values.create_simple_value (Types.Scalar Types.I64)));
     cost = 0;  (* Often free on ARM64 due to addressing modes *)
-    emit = (fun reg_alloc ->
-      let dst = make_gpr 0 8 in
-      let base = make_gpr 1 8 in
-      let index = make_gpr 2 8 in
+    emit = (fun reg_alloc result_val operands ->
+      let dst = match result_val with
+        | Some v -> reg_alloc v
+        | None -> failwith "Gep without result"
+      in
+      let base, index = match operands with
+        | [b; i] -> (reg_alloc b, reg_alloc i)
+        | _ -> failwith "Gep expects exactly 2 operands (base, index)"
+      in
       (* On ARM64, this might be folded into load/store addressing mode *)
       [{ label = None; op = ADD (dst, base, index); 
          comment = Some "address calculation (may be folded)" }]
@@ -193,10 +217,15 @@ let make_arm64_icmp_pattern pred =
       Values.create_simple_value (Types.Scalar Types.I64),
       Values.create_simple_value (Types.Scalar Types.I64));
     cost = 1;
-    emit = (fun reg_alloc ->
-      let src1 = make_gpr 0 8 in
-      let src2 = make_gpr 1 8 in
-      let dst = make_gpr 2 1 in  (* Result is boolean *)
+    emit = (fun reg_alloc result_val operands ->
+      let dst = match result_val with
+        | Some v -> reg_alloc v
+        | None -> failwith "Icmp without result"
+      in
+      let src1, src2 = match operands with
+        | [v1; v2] -> (reg_alloc v1, reg_alloc v2)
+        | _ -> failwith "Icmp expects exactly 2 operands"
+      in
       (* ARM64 uses CMP + CSET for comparisons *)
       let cond = match pred with
         | Instructions.Eq -> EQ  | Instructions.Ne -> NE
@@ -222,11 +251,15 @@ let arm64_select_pattern ty =
       Values.create_simple_value ty,
       Values.create_simple_value ty);
     cost = 1;  (* CSEL is single cycle on ARM64 *)
-    emit = (fun reg_alloc ->
-      let cond_reg = make_gpr 0 1 in
-      let true_reg = make_gpr 1 8 in
-      let false_reg = make_gpr 2 8 in
-      let dst = make_gpr 3 8 in
+    emit = (fun reg_alloc result_val operands ->
+      let dst = match result_val with
+        | Some v -> reg_alloc v
+        | None -> failwith "Select without result"
+      in
+      let cond_reg, true_reg, false_reg = match operands with
+        | [c; t; f] -> (reg_alloc c, reg_alloc t, reg_alloc f)
+        | _ -> failwith "Select expects exactly 3 operands (condition, true_val, false_val)"
+      in
       [
         { label = None; op = CMP (cond_reg, xzr); comment = Some "test condition" };
         { label = None; op = MOV (dst, true_reg); comment = Some "csel ne (conditional select)" };
@@ -238,36 +271,57 @@ let arm64_select_pattern ty =
 
 (* Emit function prologue *)
 let emit_arm64_prologue frame =
-  (* ARM64 typically saves FP and LR together *)
-  [
-    { label = None; op = STORE (x29, PreIndex (sp, Int64.neg 16L), 8); 
-      comment = Some "save FP and LR with pre-decrement" };
-    { label = None; op = STORE (x30, Offset (sp, 8L), 8); 
-      comment = None };
-    { label = None; op = MOV (x29, sp); comment = Some "set up frame pointer" };
-    { label = None; op = ADJUST_SP (Int64.neg (Int64.of_int frame.frame_size)); 
-      comment = Some (Printf.sprintf "allocate %d bytes" frame.frame_size) };
-  ]
+  (* For leaf functions with small frames, use simplified prologue *)
+  if frame.frame_size <= 16 then
+    (* Simple leaf function - just adjust stack *)
+    [
+      { label = None; op = ADJUST_SP (Int64.neg (Int64.of_int frame.frame_size)); 
+        comment = Some (Printf.sprintf "allocate %d bytes" frame.frame_size) };
+    ]
+  else
+    (* Standard prologue for non-leaf functions *)
+    [
+      { label = None; op = STORE (x29, PreIndex (sp, Int64.neg 16L), 8); 
+        comment = Some "save FP and LR with pre-decrement" };
+      { label = None; op = STORE (x30, Offset (sp, 8L), 8); 
+        comment = None };
+      { label = None; op = MOV (x29, sp); comment = Some "set up frame pointer" };
+      { label = None; op = ADJUST_SP (Int64.neg (Int64.of_int frame.frame_size)); 
+        comment = Some (Printf.sprintf "allocate %d bytes" frame.frame_size) };
+    ]
 
 (* Emit function epilogue *)
 let emit_arm64_epilogue frame =
-  [
-    { label = None; op = MOV (sp, x29); comment = Some "restore stack pointer" };
-    { label = None; op = LOAD (x29, PostIndex (sp, 16L), 8); 
-      comment = Some "restore FP and LR with post-increment" };
-    { label = None; op = LOAD (x30, Offset (sp, Int64.neg 8L), 8); 
-      comment = None };
-  ]
+  (* For leaf functions with small frames, use simplified epilogue *)
+  if frame.frame_size <= 16 then
+    (* Simple leaf function - just adjust stack back *)
+    [
+      { label = None; op = ADJUST_SP (Int64.of_int frame.frame_size); 
+        comment = Some "deallocate stack frame" };
+    ]
+  else
+    (* Standard epilogue for non-leaf functions *)
+    [
+      { label = None; op = MOV (sp, x29); comment = Some "restore stack pointer" };
+      { label = None; op = LOAD (x29, PostIndex (sp, 16L), 8); 
+        comment = Some "restore FP and LR with post-increment" };
+      { label = None; op = LOAD (x30, Offset (sp, Int64.neg 8L), 8); 
+        comment = None };
+    ]
 
 (* Pattern for return-like instruction - using a dummy constant for pattern matching *)
 let arm64_ret_pattern has_value =
   {
     pir_pattern = Instructions.Const (Values.ConstInt (0L, Types.I64));  (* Dummy pattern *)
     cost = 1;
-    emit = (fun reg_alloc ->
+    emit = (fun reg_alloc result_val operands ->
       let instrs = 
         if has_value then
-          [{ label = None; op = MOV (x0, make_gpr 0 8); comment = Some "return value" }]
+          match operands with
+          | [v] -> 
+            let src = reg_alloc v in
+            [{ label = None; op = MOV (x0, src); comment = Some "return value" }]
+          | _ -> failwith "Return with value expects exactly 1 operand"
         else [] in
       instrs @ emit_arm64_epilogue { frame_size = 0; locals_offset = 0; 
                                      spill_offset = 0; callee_save_offset = 0; 
@@ -282,7 +336,8 @@ let arm64_jmp_pattern =
   {
     pir_pattern = Instructions.Const (Values.ConstInt (1L, Types.I64));  (* Dummy pattern *)
     cost = 1;
-    emit = (fun reg_alloc ->
+    emit = (fun reg_alloc result_val operands ->
+      (* Jump has no operands or result *)
       [{ label = None; op = JMP "target"; comment = Some "unconditional branch" }]
     );
     constraints = [];
@@ -294,8 +349,11 @@ let arm64_br_pattern =
   {
     pir_pattern = Instructions.Const (Values.ConstInt (2L, Types.I64));  (* Dummy pattern *)
     cost = 1;
-    emit = (fun reg_alloc ->
-      let cond_reg = make_gpr 0 1 in
+    emit = (fun reg_alloc result_val operands ->
+      let cond_reg = match operands with
+        | [v] -> reg_alloc v
+        | _ -> failwith "Conditional branch expects exactly 1 operand (condition)"
+      in
       [
         { label = None; op = CMP (cond_reg, xzr); comment = Some "test condition" };
         { label = None; op = JCC (NE, "then"); comment = Some "branch if true" };
@@ -347,11 +405,18 @@ let arm64_call_pattern has_result =
       Values.create_simple_value Types.Ptr,  (* Function pointer *)
       []));  (* Empty args for pattern matching *)
     cost = 5;  (* Calls are expensive *)
-    emit = (fun reg_alloc ->
+    emit = (fun reg_alloc result_val operands ->
       (* This is a simplified version - real implementation would handle args *)
-      let call_target = make_gpr 0 8 in
-      emit_arm64_call "function" [] 
-        (if has_result then Some (make_gpr 1 8) else None)
+      (* First operand is the function pointer, rest are arguments *)
+      match operands with
+      | fn_ptr :: args ->
+        let arg_regs = List.map reg_alloc args in
+        let result_reg = match result_val with
+          | Some v -> Some (reg_alloc v)
+          | None -> None
+        in
+        emit_arm64_call "function" arg_regs result_reg
+      | _ -> failwith "Call expects at least a function pointer"
     );
     constraints = RegClass GPR :: (if has_result then [RegClass GPR] else []);
     hints = [];
@@ -371,10 +436,15 @@ let make_arm64_float_binop_pattern op ty =
     cost = (match op with
       | Instructions.Fdiv -> 10  (* Division is expensive *)
       | _ -> 2);  (* Other FP ops take a few cycles *)
-    emit = (fun reg_alloc ->
-      let dst = make_fpr 0 size in
-      let src1 = make_fpr 1 size in
-      let src2 = make_fpr 2 size in
+    emit = (fun reg_alloc result_val operands ->
+      let dst = match result_val with
+        | Some v -> reg_alloc v
+        | None -> failwith "Float binary operation without result"
+      in
+      let src1, src2 = match operands with
+        | [v1; v2] -> (reg_alloc v1, reg_alloc v2)
+        | _ -> failwith "Float binary operation expects exactly 2 operands"
+      in
       match op with
       | Instructions.Fadd ->
         [{ label = None; op = FADD (dst, src1, src2); comment = Some "float add" }]
@@ -397,10 +467,15 @@ let make_arm64_fcmp_pattern pred ty =
       Values.create_simple_value ty,
       Values.create_simple_value ty);
     cost = 1;
-    emit = (fun reg_alloc ->
-      let src1 = make_fpr 0 8 in
-      let src2 = make_fpr 1 8 in
-      let dst = make_gpr 2 1 in  (* Result is boolean in GPR *)
+    emit = (fun reg_alloc result_val operands ->
+      let dst = match result_val with
+        | Some v -> reg_alloc v
+        | None -> failwith "Fcmp without result"
+      in
+      let src1, src2 = match operands with
+        | [v1; v2] -> (reg_alloc v1, reg_alloc v2)
+        | _ -> failwith "Fcmp expects exactly 2 operands"
+      in
       [
         { label = None; op = FCMP (src1, src2); comment = Some "float compare" };
         { label = None; op = MOV (dst, xzr); comment = Some "cset from FP flags" };
@@ -418,9 +493,15 @@ let arm64_sitofp_pattern from_ty to_ty =
     pir_pattern = Instructions.Cast (Instructions.Sitofp (
       Values.create_simple_value from_ty, to_ty));
     cost = 2;
-    emit = (fun reg_alloc ->
-      let src = make_gpr 0 from_size in
-      let dst = make_fpr 1 to_size in
+    emit = (fun reg_alloc result_val operands ->
+      let dst = match result_val with
+        | Some v -> reg_alloc v
+        | None -> failwith "Sitofp without result"
+      in
+      let src = match operands with
+        | [v] -> reg_alloc v
+        | _ -> failwith "Sitofp expects exactly 1 operand"
+      in
       [{ label = None; op = CVT_I2F (dst, src, from_size, to_size); 
          comment = Some "signed int to float" }]
     );
@@ -439,15 +520,22 @@ let make_arm64_bitcount_pattern op ty =
       Values.create_simple_value ty,
       Values.create_simple_value ty);  (* Second operand is dummy for unary ops *)
     cost = 1;  (* Single instruction on ARM64 *)
-    emit = (fun reg_alloc ->
-      let src = make_gpr 0 size in
-      let dst = make_gpr 1 size in
+    emit = (fun reg_alloc result_val operands ->
+      let dst = match result_val with
+        | Some v -> reg_alloc v
+        | None -> failwith "Bitcount operation without result"
+      in
+      let src = match operands with
+        | v :: _ -> reg_alloc v  (* Only use first operand for unary ops *)
+        | _ -> failwith "Bitcount operation expects at least 1 operand"
+      in
       match op with
       | Instructions.Clz ->
         [{ label = None; op = MOV (dst, src); comment = Some "clz (count leading zeros)" }]
       | Instructions.Ctz ->
         (* ARM64 doesn't have CTZ, use RBIT + CLZ *)
-        let tmp = make_gpr 2 size in
+        let tmp_val = Values.create_simple_value ty in
+        let tmp = reg_alloc tmp_val in
         [
           { label = None; op = MOV (tmp, src); comment = Some "rbit (reverse bits)" };
           { label = None; op = MOV (dst, tmp); comment = Some "clz (count trailing zeros via rbit+clz)" };
@@ -468,9 +556,15 @@ let arm64_fptosi_pattern from_ty to_ty =
     pir_pattern = Instructions.Cast (Instructions.Fptosi (
       Values.create_simple_value from_ty, to_ty));
     cost = 2;
-    emit = (fun reg_alloc ->
-      let src = make_fpr 0 from_size in
-      let dst = make_gpr 1 to_size in
+    emit = (fun reg_alloc result_val operands ->
+      let dst = match result_val with
+        | Some v -> reg_alloc v
+        | None -> failwith "Fptosi without result"
+      in
+      let src = match operands with
+        | [v] -> reg_alloc v
+        | _ -> failwith "Fptosi expects exactly 1 operand"
+      in
       [{ label = None; op = CVT_F2I (dst, src, from_size, to_size); 
          comment = Some "float to signed int" }]
     );
@@ -486,9 +580,15 @@ let arm64_uitofp_pattern from_ty to_ty =
     pir_pattern = Instructions.Cast (Instructions.Uitofp (
       Values.create_simple_value from_ty, to_ty));
     cost = 2;
-    emit = (fun reg_alloc ->
-      let src = make_gpr 0 from_size in
-      let dst = make_fpr 1 to_size in
+    emit = (fun reg_alloc result_val operands ->
+      let dst = match result_val with
+        | Some v -> reg_alloc v
+        | None -> failwith "Uitofp without result"
+      in
+      let src = match operands with
+        | [v] -> reg_alloc v
+        | _ -> failwith "Uitofp expects exactly 1 operand"
+      in
       [{ label = None; op = CVT_I2F (dst, src, from_size, to_size); 
          comment = Some "unsigned int to float" }]
     );
@@ -504,9 +604,15 @@ let arm64_fptoui_pattern from_ty to_ty =
     pir_pattern = Instructions.Cast (Instructions.Fptoui (
       Values.create_simple_value from_ty, to_ty));
     cost = 2;
-    emit = (fun reg_alloc ->
-      let src = make_fpr 0 from_size in
-      let dst = make_gpr 1 to_size in
+    emit = (fun reg_alloc result_val operands ->
+      let dst = match result_val with
+        | Some v -> reg_alloc v
+        | None -> failwith "Fptoui without result"
+      in
+      let src = match operands with
+        | [v] -> reg_alloc v
+        | _ -> failwith "Fptoui expects exactly 1 operand"
+      in
       [{ label = None; op = CVT_F2I (dst, src, from_size, to_size); 
          comment = Some "float to unsigned int" }]
     );
@@ -520,9 +626,15 @@ let arm64_fpext_pattern from_ty to_ty =
     pir_pattern = Instructions.Cast (Instructions.Fpext (
       Values.create_simple_value from_ty, to_ty));
     cost = 1;
-    emit = (fun reg_alloc ->
-      let src = make_fpr 0 4 in  (* F32 *)
-      let dst = make_fpr 1 8 in  (* F64 *)
+    emit = (fun reg_alloc result_val operands ->
+      let dst = match result_val with
+        | Some v -> reg_alloc v
+        | None -> failwith "Fpext without result"
+      in
+      let src = match operands with
+        | [v] -> reg_alloc v
+        | _ -> failwith "Fpext expects exactly 1 operand"
+      in
       [{ label = None; op = CVT_F2F (dst, src, 4, 8); 
          comment = Some "float extend (f32 to f64)" }]
     );
@@ -536,9 +648,15 @@ let arm64_fptrunc_pattern from_ty to_ty =
     pir_pattern = Instructions.Cast (Instructions.Fptrunc (
       Values.create_simple_value from_ty, to_ty));
     cost = 1;
-    emit = (fun reg_alloc ->
-      let src = make_fpr 0 8 in  (* F64 *)
-      let dst = make_fpr 1 4 in  (* F32 *)
+    emit = (fun reg_alloc result_val operands ->
+      let dst = match result_val with
+        | Some v -> reg_alloc v
+        | None -> failwith "Fptrunc without result"
+      in
+      let src = match operands with
+        | [v] -> reg_alloc v
+        | _ -> failwith "Fptrunc expects exactly 1 operand"
+      in
       [{ label = None; op = CVT_F2F (dst, src, 8, 4); 
          comment = Some "float truncate (f64 to f32)" }]
     );
@@ -553,9 +671,15 @@ let arm64_trunc_pattern from_ty to_ty =
     pir_pattern = Instructions.Cast (Instructions.Trunc (
       Values.create_simple_value from_ty, to_ty));
     cost = 0;  (* Usually free on ARM64 - just use smaller register view *)
-    emit = (fun reg_alloc ->
-      let src = make_gpr 0 8 in
-      let dst = make_gpr 1 to_size in
+    emit = (fun reg_alloc result_val operands ->
+      let dst = match result_val with
+        | Some v -> reg_alloc v
+        | None -> failwith "Trunc without result"
+      in
+      let src = match operands with
+        | [v] -> reg_alloc v
+        | _ -> failwith "Trunc expects exactly 1 operand"
+      in
       [{ label = None; op = MOV (dst, src); comment = Some "truncate (use smaller register)" }]
     );
     constraints = [RegClass GPR; RegClass GPR];
@@ -569,9 +693,15 @@ let arm64_zext_pattern from_ty to_ty =
     pir_pattern = Instructions.Cast (Instructions.Zext (
       Values.create_simple_value from_ty, to_ty));
     cost = 1;
-    emit = (fun reg_alloc ->
-      let src = make_gpr 0 from_size in
-      let dst = make_gpr 1 8 in
+    emit = (fun reg_alloc result_val operands ->
+      let dst = match result_val with
+        | Some v -> reg_alloc v
+        | None -> failwith "Zext without result"
+      in
+      let src = match operands with
+        | [v] -> reg_alloc v
+        | _ -> failwith "Zext expects exactly 1 operand"
+      in
       [{ label = None; op = EXT (dst, src, from_size, false); 
          comment = Some "zero extend" }]
     );
@@ -586,9 +716,15 @@ let arm64_sext_pattern from_ty to_ty =
     pir_pattern = Instructions.Cast (Instructions.Sext (
       Values.create_simple_value from_ty, to_ty));
     cost = 1;
-    emit = (fun reg_alloc ->
-      let src = make_gpr 0 from_size in
-      let dst = make_gpr 1 8 in
+    emit = (fun reg_alloc result_val operands ->
+      let dst = match result_val with
+        | Some v -> reg_alloc v
+        | None -> failwith "Sext without result"
+      in
+      let src = match operands with
+        | [v] -> reg_alloc v
+        | _ -> failwith "Sext expects exactly 1 operand"
+      in
       [{ label = None; op = EXT (dst, src, from_size, true); 
          comment = Some "sign extend" }]
     );
@@ -601,19 +737,15 @@ let arm64_const_pattern scalar_ty =
   {
     pir_pattern = Instructions.Const (Values.ConstInt (0L, scalar_ty));  (* Dummy constant *)
     cost = 1;  (* Will be refined by materialize_constant *)
-    emit = (fun reg_alloc ->
-      (* Extract the actual constant value from the instruction *)
-      let extract_const_value instr =
-        match instr with
-        | Instructions.Const (Values.ConstInt (value, _)) -> value
-        | _ -> failwith "Expected constant instruction"
+    emit = (fun reg_alloc result_val operands ->
+      (* Constants are special - they don't have operands but the result value contains the constant *)
+      let dst = match result_val with
+        | Some v -> reg_alloc v
+        | None -> failwith "Constant without result"
       in
-      (* Get the destination register *)
-      let dst = make_gpr 0 (Types.size_of_scalar scalar_ty) in
-      (* Call materialize_constant with the actual value *)
-      (* Note: We need access to the actual instruction to get the real constant value
-         This is a limitation of the current pattern matching approach *)
-      []  (* TODO: Need to pass actual constant value through pattern matching *)
+      (* For constants, the emit function in instruction_selection.ml handles this specially
+         by calling materialize_constant. We just need to return an empty list here. *)
+      []  (* Handled specially in instruction_selection.ml *)
     );
     constraints = [RegClass GPR];
     hints = [];
@@ -775,8 +907,9 @@ let materialize_arm64_constant value ty dst =
   match ty with
   | Types.Scalar scalar_ty ->
     if value = 0L then
-      (* Use zero register *)
-      [{ label = None; op = MOV (dst, xzr); comment = Some "load zero" }]
+      (* Use zero register - wzr for 32-bit, xzr for 64-bit *)
+      let zr = if dst.reg_size = 4 then make_gpr 31 4 else xzr in
+      [{ label = None; op = MOV (dst, zr); comment = Some "load zero" }]
     else
       (* For simple cases, just use MOV_IMM which will be expanded during assembly *)
       [{ label = None; op = MOV_IMM (dst, value); comment = Some (Printf.sprintf "load constant %Ld" value) }]

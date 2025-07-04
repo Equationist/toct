@@ -57,7 +57,7 @@ let compile_file input_file output_file =
     
     (* Assemble and link *)
     Printf.eprintf "Assembling and linking...\n";
-    let cmd = Printf.sprintf "as -arch arm64 -o %s.o %s && ld -o %s %s.o -lSystem -syslibroot `xcrun -sdk macosx --show-sdk-path` -arch arm64" 
+    let cmd = Printf.sprintf "as -arch arm64 -o %s.o %s && clang -arch arm64 -o %s %s.o" 
       output_file asm_file output_file output_file in
     let exit_code = Sys.command cmd in
     

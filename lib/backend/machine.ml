@@ -194,7 +194,11 @@ type pattern = {
   (* Cost estimate *)
   cost: int;
   (* Machine instructions to emit *)
-  emit: (Compilerkit_pir.Values.value -> reg) -> machine_instr list;
+  (* Takes: reg allocator, result value (if any), operand values *)
+  emit: (Compilerkit_pir.Values.value -> reg) -> 
+        Compilerkit_pir.Values.value option ->
+        Compilerkit_pir.Values.value list -> 
+        machine_instr list;
   (* Operand constraints *)
   constraints: operand_constraint list;
   (* Allocation hints *)

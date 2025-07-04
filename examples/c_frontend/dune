@@ -155,6 +155,18 @@
  (modules test_end_to_end_debug)
  (modes byte))
 
+(executable
+ (name test_debug_variables)
+ (libraries c_frontend compilerkit.pir compilerkit.backend)
+ (modules test_debug_variables)
+ (modes byte))
+
+(executable
+ (name test_debug_backend_vars)
+ (libraries c_frontend compilerkit.pir compilerkit.backend)
+ (modules test_debug_backend_vars)
+ (modes byte))
+
 (rule
  (alias runtest)
  (action (run ./test_preprocessor.exe)))

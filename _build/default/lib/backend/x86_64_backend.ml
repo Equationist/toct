@@ -51,11 +51,15 @@ let emit_mov_sized dst src size =
 
 (* Pattern for integer binary operations *)
 let make_x64_binop_pattern op =
-  let emit reg_alloc =
-    (* In a real implementation, reg_alloc would map PIR values to registers *)
-    let dst = make_gpr 0 8 in
-    let src1 = make_gpr 1 8 in
-    let src2 = make_gpr 2 8 in
+  let emit reg_alloc result_val operands =
+    let dst = match result_val with
+      | Some v -> reg_alloc v
+      | None -> failwith "Binary operation without result"
+    in
+    let src1, src2 = match operands with
+      | [v1; v2] -> (reg_alloc v1, reg_alloc v2)
+      | _ -> failwith "Binary operation expects exactly 2 operands"
+    in
     match op with
     | Instructions.Add -> 
       [{ label = None; op = MOV (dst, src1); comment = Some "move first operand" };
@@ -99,9 +103,15 @@ let x64_load_pattern ty =
   {
     pir_pattern = Instructions.Memory (Instructions.Load ty);
     cost = 1;
-    emit = (fun reg_alloc ->
-      let dst = make_gpr 0 size in
-      let addr = make_gpr 1 8 in
+    emit = (fun reg_alloc result_val operands ->
+      let dst = match result_val with
+        | Some v -> reg_alloc v
+        | None -> failwith "Load without result"
+      in
+      let addr = match operands with
+        | [v] -> reg_alloc v
+        | _ -> failwith "Load expects exactly 1 operand (address)"
+      in
       [{ label = None; op = LOAD (dst, Direct addr, size); comment = Some "load from memory" }]
     );
     constraints = [RegClass GPR; Memory];
@@ -115,9 +125,12 @@ let x64_store_pattern =
       Values.create_simple_value (Types.Scalar Types.I64),
       Values.create_simple_value Types.Ptr));
     cost = 1;
-    emit = (fun reg_alloc ->
-      let src = make_gpr 0 8 in
-      let addr = make_gpr 1 8 in
+    emit = (fun reg_alloc result_val operands ->
+      (* Store has no result value *)
+      let src, addr = match operands with
+        | [v; a] -> (reg_alloc v, reg_alloc a)
+        | _ -> failwith "Store expects exactly 2 operands (value, address)"
+      in
       [{ label = None; op = STORE (src, Direct addr, 8); comment = Some "store to memory" }]
     );
     constraints = [RegClass GPR; Memory];
@@ -201,10 +214,10 @@ let materialize_x64_constant value ty dst =
       [{ label = None; op = XOR (dst, dst, dst); comment = Some "zero register" }]
     else if Int64.abs value <= 0x7FFFFFFFL then
       (* Fits in 32 bits - use mov *)
-      [{ label = None; op = MOV (dst, dst); comment = Some (Printf.sprintf "load constant %Ld" value) }]
+      [{ label = None; op = MOV_IMM (dst, value); comment = Some (Printf.sprintf "load constant %Ld" value) }]
     else
       (* Need full 64-bit constant - would use movabs on x64 *)
-      [{ label = None; op = MOV (dst, dst); comment = Some (Printf.sprintf "load constant %Ld" value) }]
+      [{ label = None; op = MOV_IMM (dst, value); comment = Some (Printf.sprintf "load constant %Ld" value) }]
   | _ -> failwith "Can only materialize scalar constants"
 
 (* x86_64 backend module *)
