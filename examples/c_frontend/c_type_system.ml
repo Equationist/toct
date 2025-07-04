@@ -309,6 +309,9 @@ let rec c_type_to_pir_type = function
     (match c_type_to_pir_type elem_ty with
      | Some pir_elem_ty -> Some (Compilerkit_pir.Types.Array (size, pir_elem_ty))
      | None -> None)
+  | Array (_, None, _) -> 
+    (* Incomplete arrays are treated as pointers in PIR *)
+    Some Compilerkit_pir.Types.Ptr
   | Struct (_, Some fields) ->
     let pir_fields = List.filter_map (fun (_, ty, _) -> c_type_to_pir_type ty) fields in
     if List.length pir_fields = List.length fields then

@@ -161,8 +161,8 @@ let rec gen_expr ctx expr expected_type =
           | Some pir_ty ->
             let result_value = create_simple_value pir_ty in
             (* For now, assume all identifiers are loads from memory *)
-            let _addr_value = create_simple_value Ptr in
-            emit_instr ctx ~result:result_value (Memory (Load pir_ty));
+            let addr_value = create_simple_value Ptr in
+            emit_instr ctx ~result:result_value (Memory (Load (pir_ty, addr_value)));
             result_value
           | None -> failwith ("Cannot convert C type to PIR: " ^ string_of_c_type sym.c_type))
        | None -> failwith ("Undeclared identifier: " ^ name))
@@ -280,7 +280,7 @@ let rec gen_expr ctx expr expected_type =
         | Ptr ->
           let result_type = expected_type |> c_type_to_pir_type |> function Some t -> t | None -> Scalar I32 in
           let result_value = create_simple_value result_type in
-          emit_instr ctx ~result:result_value (Memory (Load result_type));
+          emit_instr ctx ~result:result_value (Memory (Load (result_type, operand_val)));
           result_value
         | _ -> failwith "Dereference of non-pointer")
      

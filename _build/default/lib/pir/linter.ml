@@ -158,6 +158,12 @@ let verify_instruction_types _env instr result =
       add_error (InvalidOperandType ("select", "true and false values must have same type")) result
     else result
   
+  | Memory (Load (_ty, ptr)) ->
+    let ptr_ty = get_type ptr in
+    if ptr_ty <> Ptr then
+      add_error (InvalidOperandType ("load", "address must be pointer")) result
+    else result
+  
   | Memory (Store (_value, ptr)) ->
     let ptr_ty = get_type ptr in
     if ptr_ty <> Ptr then

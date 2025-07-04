@@ -130,8 +130,8 @@ let mul ?flag ?(attrs=empty ()) result v1 v2 =
 let icmp ?(attrs=empty ()) result pred v1 v2 =
   emit_instr ~result (Icmp (pred, v1, v2)) attrs
 
-let load ?(attrs=empty ()) result ty _ptr =
-  emit_instr ~result (Memory (Load ty)) attrs
+let load ?(attrs=empty ()) result ty ptr =
+  emit_instr ~result (Memory (Load (ty, ptr))) attrs
 
 let store ?(attrs=empty ()) value ptr =
   emit_instr (Memory (Store (value, ptr))) attrs >>= fun _ ->

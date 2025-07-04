@@ -1,5 +1,30 @@
 # C Frontend Development Notes
 
+## Current Status (Updated)
+
+### Completed Features
+- ✅ Arithmetic operations (-, *, /, %)
+- ✅ Bitwise operations (&, |, ^, <<, >>)  
+- ✅ Comparison operations (<, >, <=, >=, ==, !=)
+- ✅ Control flow (if/else)
+- ✅ While and for loops (structure - needs SSA fixes)
+- ✅ Function calls with proper name resolution
+- ✅ Basic array declarations
+
+### Known Issues
+1. **SSA Form**: Loops don't work correctly without phi nodes
+2. **Load/Store**: PIR Load instruction design mismatch - Load doesn't include address
+3. **Function Parameters**: Parameters not properly connected to calling convention registers
+4. **Arrays**: Need proper Load/Store implementation
+
+### PIR Design Issues (FIXED)
+The Load instruction in PIR had a fundamental design issue:
+- Original definition: `Load of ty` (only took a type)
+- Backend expected: address as an operand
+- Store works correctly: `Store of value * value`  
+- Solution: Changed Load to `Load of ty * value` to include the address
+- Fixed in: instructions.ml, builder.ml, pretty_printer.ml, linter.ml, parser.ml, and all backends
+
 ## Components to Edit for Each Feature
 
 ### 1. Arithmetic Operations (-, *, /, %)

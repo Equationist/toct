@@ -415,9 +415,9 @@ let rec parse_instruction state =
       expect state DOT;
       let ty = parse_type state in
       expect state LBRACKET;
-      let _ptr = parse_value state in
+      let ptr = parse_value state in
       expect state RBRACKET;
-      Memory (Load ty)
+      Memory (Load (ty, ptr))
     
     | STORE ->
       expect state DOT;

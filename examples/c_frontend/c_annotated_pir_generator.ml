@@ -186,16 +186,17 @@ let rec gen_annotated_expr ctx annotated_expr =
           Hashtbl.replace ctx.value_map name right_val;
           right_val
         | ArrayRef (array_expr, index_expr) ->
-          (* Get array base and index *)
-          let array_val = gen_annotated_expr_raw ctx array_expr in
+          (* Generate array base address *)
+          let array_ptr = gen_annotated_expr_raw ctx array_expr in
+          (* Generate index *)
           let index_val = gen_annotated_expr_raw ctx index_expr in
           
           (* Calculate element address using GEP *)
-          let addr_val = create_simple_value Ptr in
-          emit_instr ctx ~result:addr_val (Address (Gep (array_val, index_val)));
+          let elem_ptr = create_simple_value Ptr in
+          emit_instr ctx ~result:elem_ptr (Address (Gep (array_ptr, index_val)));
           
-          (* Store the value to the address *)
-          emit_instr ctx (Memory (Store (right_val, addr_val)));
+          (* Store the value to the computed address *)
+          emit_instr ctx (Memory (Store (right_val, elem_ptr)));
           right_val
         | _ -> failwith "Complex assignment not yet implemented")
      
@@ -217,17 +218,18 @@ let rec gen_annotated_expr ctx annotated_expr =
     result_value
     
   | ArrayRef (array_expr, index_expr) ->
-    (* Generate array base and index *)
-    let array_val = gen_annotated_expr_raw ctx array_expr in
+    (* Generate array base address *)
+    let array_ptr = gen_annotated_expr_raw ctx array_expr in
+    (* Generate index *)
     let index_val = gen_annotated_expr_raw ctx index_expr in
     
     (* Calculate element address using GEP *)
-    let addr_val = create_simple_value Ptr in
-    emit_instr ctx ~result:addr_val (Address (Gep (array_val, index_val)));
+    let elem_ptr = create_simple_value Ptr in
+    emit_instr ctx ~result:elem_ptr (Address (Gep (array_ptr, index_val)));
     
-    (* Load the value from the address *)
-    let result_val = create_simple_value (Scalar I32) in  (* Assume int array for now *)
-    emit_instr ctx ~result:result_val (Memory (Load (Scalar I32)));
+    (* Load the value from the computed address *)
+    let result_val = create_simple_value (Scalar I32) in
+    emit_instr ctx ~result:result_val (Memory (Load (Scalar I32, elem_ptr)));
     result_val
     
   | _ ->

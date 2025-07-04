@@ -30,7 +30,7 @@ type binop =
 
 (* Memory operations *)
 type memop = 
-  | Load of ty                           (* load.Ty [ptr] *)
+  | Load of ty * value                   (* load.Ty [ptr] *)
   | Store of value * value               (* store.Ty val, [ptr] *)
   | Alloca of value * int                (* alloca size align *)
   | Memcpy of value * value * value      (* memcpy dst, src, bytes *)
@@ -138,7 +138,7 @@ let result_type_of_instr = function
   | Icmp _ -> Some (Scalar I1)                 (* Boolean result *)
   | Fcmp _ -> Some (Scalar I1)                 (* Boolean result *)
   | Select (_, v_true, _) -> Some (get_type v_true)  (* Type of selected values *)
-  | Memory (Load ty) -> Some ty                (* Loaded type *)
+  | Memory (Load (ty, _ptr)) -> Some ty        (* Loaded type *)
   | Memory (Store _) -> None                   (* No result *)
   | Memory (Alloca _) -> Some Ptr              (* Pointer result *)
   | Memory (Memcpy _) -> None                  (* No result *)

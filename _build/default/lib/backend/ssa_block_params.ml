@@ -50,7 +50,7 @@ let rename_instruction (state: rename_state) (inst: I.instruction) : I.instructi
     
     | I.Memory memop ->
       let new_memop = match memop with
-        | I.Load ty -> I.Load ty
+        | I.Load (ty, ptr) -> I.Load (ty, rename_value ptr)
         | I.Store (value, ptr) ->
           I.Store (rename_value value, rename_value ptr)
         | I.Alloca (size, align) ->

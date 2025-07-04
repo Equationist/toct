@@ -27,7 +27,7 @@ let rec build_tree (instr: Instructions.instr) : tree_node =
       [value_to_tree v1; value_to_tree v2]
     | Instructions.Select (cond, v1, v2) ->
       [value_to_tree cond; value_to_tree v1; value_to_tree v2]
-    | Instructions.Memory (Instructions.Load _) -> []
+    | Instructions.Memory (Instructions.Load (_, ptr)) -> [value_to_tree ptr]
     | Instructions.Memory (Instructions.Store (v1, v2)) ->
       [value_to_tree v1; value_to_tree v2]
     | Instructions.Memory (Instructions.Alloca (size, _)) ->
@@ -101,7 +101,7 @@ let match_pattern (pattern: pattern) (node: tree_node) : bool =
   | Instructions.Binop (op1, _, v1, v2), Instructions.Binop (op2, _, v3, v4) -> 
     (* Match if operation is same and types match *)
     op1 = op2 && v1.Values.ty = v3.Values.ty && v2.Values.ty = v4.Values.ty
-  | Instructions.Memory (Instructions.Load ty1), Instructions.Memory (Instructions.Load ty2) -> ty1 = ty2
+  | Instructions.Memory (Instructions.Load (ty1, _)), Instructions.Memory (Instructions.Load (ty2, _)) -> ty1 = ty2
   | Instructions.Memory (Instructions.Store _), Instructions.Memory (Instructions.Store _) -> true
   | Instructions.Const (Values.ConstInt (_, ty1)), Instructions.Const (Values.ConstInt (_, ty2)) -> ty1 = ty2
   | Instructions.Const (Values.ConstFloat (_, ty1)), Instructions.Const (Values.ConstFloat (_, ty2)) -> ty1 = ty2
@@ -147,7 +147,7 @@ module InstructionSelector (M: MACHINE) = struct
     | Instructions.Icmp (_, v1, v2) -> [v1; v2]
     | Instructions.Fcmp (_, v1, v2) -> [v1; v2]
     | Instructions.Select (cond, v1, v2) -> [cond; v1; v2]
-    | Instructions.Memory (Instructions.Load _) -> []
+    | Instructions.Memory (Instructions.Load (_, ptr)) -> [ptr]
     | Instructions.Memory (Instructions.Store (v1, v2)) -> [v1; v2]
     | Instructions.Memory (Instructions.Alloca (size, _)) -> [size]
     | Instructions.Memory (Instructions.Memcpy (dst, src, size)) -> [dst; src; size]

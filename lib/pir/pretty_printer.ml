@@ -175,11 +175,12 @@ let pp_instr ctx = function
       (pp_value ctx v_true)
       (pp_value ctx v_false)
   
-  | Memory (Load ty) ->
+  | Memory (Load (ty, ptr)) ->
     let no_color_ctx = { ctx with config = { ctx.config with use_colors = false } } in
-    Printf.sprintf "%s.%s [...]"
+    Printf.sprintf "%s.%s [%s]"
       (keyword ctx "load")
       (pp_type no_color_ctx ty)
+      (pp_value ctx ptr)
   
   | Memory (Store (val_, ptr)) ->
     let ty = get_type val_ in

@@ -167,6 +167,12 @@
  (modules test_debug_backend_vars)
  (modes byte))
 
+(executable
+ (name test_annotated_array)
+ (libraries c_frontend compilerkit.pir compilerkit.backend)
+ (modules test_annotated_array)
+ (modes byte))
+
 (rule
  (alias runtest)
  (action (run ./test_preprocessor.exe)))

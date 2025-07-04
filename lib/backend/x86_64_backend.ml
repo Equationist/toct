@@ -101,7 +101,7 @@ let x64_load_pattern ty =
     | _ -> 8  (* Default to 8 bytes *)
   in
   {
-    pir_pattern = Instructions.Memory (Instructions.Load ty);
+    pir_pattern = Instructions.Memory (Instructions.Load (ty, Values.create_simple_value Types.Ptr));
     cost = 1;
     emit = (fun reg_alloc result_val operands ->
       let dst = match result_val with
