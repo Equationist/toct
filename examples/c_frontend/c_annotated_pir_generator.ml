@@ -50,7 +50,7 @@ let emit_instr ctx ?result instr =
   | Some block ->
     let instruction = create_simple_instruction ?result instr in
     let updated_block = { block with instructions = instruction :: block.instructions } in
-    ctx.current_block <- Some updated_block
+    ctx.current_block <- Some updated_block;
   | None -> failwith "No current block to emit instruction to"
 
 (** Finish current block with terminator *)
@@ -132,6 +132,9 @@ let rec gen_annotated_expr ctx annotated_expr =
               add_attr "function_name" (Compilerkit_pir.Attributes.String name) func_value in
             Hashtbl.add ctx.value_map name func_value_with_name;
             func_value_with_name
+          | Array (_, _, _) ->
+            (* For arrays, we should have already allocated them *)
+            failwith (Printf.sprintf "Array '%s' not found in value map - was it properly allocated?" name)
           | _ ->
             (match c_type_to_pir_type symbol.c_type with
              | Some pir_ty ->
@@ -393,8 +396,8 @@ and gen_annotated_block_item ctx annotated_item =
       
       (* Create PIR value for the variable *)
       (match var_type with
-       | Array (_elem_type, size_opt, _quals) when size_opt <> None ->
-         let size = match size_opt with Some s -> s | None -> 0 in
+       | Array (_elem_type, size_opt, _quals) ->
+         let size = match size_opt with Some s -> s | None -> 1 in
          (* For arrays, allocate space on the stack *)
          let size_val = create_simple_value (Scalar I64) in
          emit_instr ctx ~result:size_val (Const (ConstInt (Int64.of_int size, I64)));

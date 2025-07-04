@@ -13,9 +13,9 @@
 
 ### Known Issues
 1. **SSA Form**: Loops don't work correctly without phi nodes
-2. **Load/Store**: PIR Load instruction design mismatch - Load doesn't include address
+2. **Array Allocation**: Array alloca instructions not being included in PIR output (v252 used but not defined)
 3. **Function Parameters**: Parameters not properly connected to calling convention registers
-4. **Arrays**: Need proper Load/Store implementation
+4. **Const Handling**: ConstZero values not properly handled in backend
 
 ### PIR Design Issues (FIXED)
 The Load instruction in PIR had a fundamental design issue:
